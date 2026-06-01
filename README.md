@@ -2,11 +2,11 @@
 
 > 一个能读文档、会翻页、能记住你偏好的研究型 AI Agent
 
-[Python](https://www.python.org/) ·
-[FastAPI](https://fastapi.tiangolo.com/) ·
-[React](https://react.dev/) ·
-[TypeScript](https://www.typescriptlang.org/) ·
-[MIT License](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 ---
 
