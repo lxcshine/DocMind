@@ -1,0 +1,185 @@
+{
+  "config": {
+    "active_types": [
+      "raw",
+      "semantic",
+      "episodic",
+      "procedural"
+    ],
+    "max_entries": 200,
+    "max_tokens": 50000,
+    "temperature": 0.3,
+    "forgetting_policy": "FIFO",
+    "system_prompt": ""
+  },
+  "entries": [
+    {
+      "id": "semantic_session_1779973683145_0cv43rqe7_3",
+      "type": "semantic",
+      "content": "The key difference between BatchNorm, LayerNorm, and RMSNorm lies in their normalization dimensions, statistical calculations, mini-batch dependencies, and suitability for different network architectures.",
+      "keywords": [
+        "normalization comparison",
+        "BatchNorm",
+        "LayerNorm",
+        "RMSNorm",
+        "network architectures"
+      ],
+      "source_session_id": "session_1779973683145_0cv43rqe7",
+      "enabled": true,
+      "created_at": "2026-05-28T13:10:03.584910+00:00",
+      "updated_at": "2026-05-28T13:10:03.584910+00:00"
+    },
+    {
+      "id": "semantic_session_1779973683145_0cv43rqe7_4",
+      "type": "semantic",
+      "content": "BatchNorm uses both mean and variance calculations, LayerNorm uses mean and variance within a layer, while RMSNorm only uses the root mean square without mean centering.",
+      "keywords": [
+        "normalization formulas",
+        "mean",
+        "variance",
+        "RMS",
+        "calculations"
+      ],
+      "source_session_id": "session_1779973683145_0cv43rqe7",
+      "enabled": true,
+      "created_at": "2026-05-28T13:10:03.584910+00:00",
+      "updated_at": "2026-05-28T13:10:03.584910+00:00"
+    },
+    {
+      "id": "episodic_session_1779973683145_0cv43rqe7_5",
+      "type": "episodic",
+      "content": "The user inquired about the differences between RMSNorm, LayerNorm, and BatchNorm normalization techniques in neural networks.",
+      "keywords": [
+        "normalization techniques",
+        "neural networks",
+        "comparison",
+        "RMSNorm",
+        "LayerNorm",
+        "BatchNorm"
+      ],
+      "source_session_id": "session_1779973683145_0cv43rqe7",
+      "enabled": true,
+      "created_at": "2026-05-28T13:10:03.584910+00:00",
+      "updated_at": "2026-05-28T13:10:03.584910+00:00"
+    },
+    {
+      "id": "episodic_session_1779973683145_0cv43rqe7_6",
+      "type": "episodic",
+      "content": "The user received a detailed explanation of the three normalization methods including their mathematical formulas, advantages, limitations, and suitable application scenarios.",
+      "keywords": [
+        "normalization explanation",
+        "mathematical formulas",
+        "advantages",
+        "limitations",
+        "applications"
+      ],
+      "source_session_id": "session_1779973683145_0cv43rqe7",
+      "enabled": true,
+      "created_at": "2026-05-28T13:10:03.584910+00:00",
+      "updated_at": "2026-05-28T13:10:03.584910+00:00"
+    },
+    {
+      "id": "procedural_session_1779973683145_0cv43rqe7_7",
+      "type": "procedural",
+      "content": "The user prefers to ask technical questions about machine learning concepts in Chinese.",
+      "keywords": [
+        "Chinese",
+        "technical questions",
+        "machine learning",
+        "language preference"
+      ],
+      "source_session_id": "session_1779973683145_0cv43rqe7",
+      "enabled": true,
+      "created_at": "2026-05-28T13:10:03.584910+00:00",
+      "updated_at": "2026-05-28T13:10:03.584910+00:00"
+    },
+    {
+      "id": "procedural_session_1779973683145_0cv43rqe7_8",
+      "type": "procedural",
+      "content": "The user is interested in understanding the theoretical and practical differences between neural network normalization techniques.",
+      "keywords": [
+        "neural networks",
+        "normalization",
+        "theoretical understanding",
+        "practical differences",
+        "learning interest"
+      ],
+      "source_session_id": "session_1779973683145_0cv43rqe7",
+      "enabled": true,
+      "created_at": "2026-05-28T13:10:03.584910+00:00",
+      "updated_at": "2026-05-28T13:10:03.584910+00:00"
+    },
+    {
+      "id": "semantic_session_1779973683145_0cv43rqe7_0",
+      "type": "semantic",
+      "content": "Batch Normalization is a technique that normalizes each activation value within a mini-batch to have zero mean and unit variance while maintaining network expressivity through learnable parameters.",
+      "keywords": [
+        "Batch Normalization",
+        "normalization",
+        "deep learning",
+        "neural networks"
+      ],
+      "source_session_id": "session_1779973683145_0cv43rqe7",
+      "enabled": true,
+      "created_at": "2026-05-28T13:12:43.639085+00:00",
+      "updated_at": "2026-05-28T13:12:43.639085+00:00"
+    },
+    {
+      "id": "semantic_session_1779973683145_0cv43rqe7_1",
+      "type": "semantic",
+      "content": "The BatchNorm formula includes calculating mini-batch mean, mini-batch variance, normalization, and scaling with learnable parameters.",
+      "keywords": [
+        "BatchNorm formula",
+        "mini-batch statistics",
+        "normalization steps"
+      ],
+      "source_session_id": "session_1779973683145_0cv43rqe7",
+      "enabled": true,
+      "created_at": "2026-05-28T13:12:43.639085+00:00",
+      "updated_at": "2026-05-28T13:12:43.639085+00:00"
+    },
+    {
+      "id": "semantic_session_1779973683145_0cv43rqe7_2",
+      "type": "semantic",
+      "content": "BatchNorm uses learnable parameters gamma and beta to maintain network expressivity after normalization.",
+      "keywords": [
+        "learnable parameters",
+        "gamma",
+        "beta",
+        "network expressivity"
+      ],
+      "source_session_id": "session_1779973683145_0cv43rqe7",
+      "enabled": true,
+      "created_at": "2026-05-28T13:12:43.639085+00:00",
+      "updated_at": "2026-05-28T13:12:43.639085+00:00"
+    },
+    {
+      "id": "episodic_session_1779973683145_0cv43rqe7_3",
+      "type": "episodic",
+      "content": "User asked about the calculation formula for BatchNorm in Chinese.",
+      "keywords": [
+        "BatchNorm",
+        "calculation formula",
+        "Chinese question"
+      ],
+      "source_session_id": "session_1779973683145_0cv43rqe7",
+      "enabled": true,
+      "created_at": "2026-05-28T13:12:43.639085+00:00",
+      "updated_at": "2026-05-28T13:12:43.639085+00:00"
+    },
+    {
+      "id": "procedural_session_1779973683145_0cv43rqe7_4",
+      "type": "procedural",
+      "content": "User prefers to ask technical questions in Chinese about deep learning concepts.",
+      "keywords": [
+        "Chinese language",
+        "technical questions",
+        "deep learning"
+      ],
+      "source_session_id": "session_1779973683145_0cv43rqe7",
+      "enabled": true,
+      "created_at": "2026-05-28T13:12:43.639085+00:00",
+      "updated_at": "2026-05-28T13:12:43.639085+00:00"
+    }
+  ]
+}
