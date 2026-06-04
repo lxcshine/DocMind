@@ -48,9 +48,25 @@ DocMind 的出发点是：**把 LLM 从最后一步的"润色工具"提升到全
 拼接 chunk → LLM → 回答               Agent 翻目录 → 定位章节 → 翻页
                                         ↓
                                       Agent 综合 → 回答
+
+
+
 ```
 
-项目原名 ResearchFlow，现已更名为 DocMind。设计理念受到 [PageIndex](https://github.com/nick-cao/PageIndex) Vectorless RAG 思想的深刻影响，记忆模块的设计参考了 [RAGFlow](https://github.com/infiniflow/ragflow) 的多类型记忆架构。
+项目名为 DocMind。设计理念受到 [PageIndex](https://github.com/nick-cao/PageIndex) Vectorless RAG 思想的深刻影响，记忆模块的设计参考了 [RAGFlow](https://github.com/infiniflow/ragflow) 的多类型记忆架构。
+
+
+### 项目功能
+
+![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/images/image_1.png)
+
+![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/images/image_2.png)
+
+![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/images/image_3.png)
+
+![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/images/image_4.png)
+
+![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/images/image_5.png)
 
 ---
 
