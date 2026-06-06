@@ -58,15 +58,15 @@ DocMind 的出发点是：**把 LLM 从最后一步的"润色工具"提升到全
 
 ### 项目功能
 
-![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/images/image_1.png)
+![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/image/image_1.png)
 
-![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/images/image_2.png)
+![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/image/image_2.png)
 
-![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/images/image_3.png)
+![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/image/image_3.png)
 
-![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/images/image_4.png)
+![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/image/image_4.png)
 
-![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/images/image_5.png)
+![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/image/image_5.png)
 
 ---
 
