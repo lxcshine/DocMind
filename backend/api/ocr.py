@@ -24,13 +24,40 @@ from pathlib import Path
 from config.settings import settings
 from core.ocr_handler import ocr_processor
 from core.progress import progress_tracker
+from infrastructure.state_db import get_state_db
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_ocr_results: Dict[str, Dict] = {}
-_ocr_status: Dict[str, str] = {}
+
+# ===== OCR Result Persistence (SQLite) =====
+
+def _save_ocr_result(doc_id: str, result: Dict) -> None:
+    """Persist OCR result to SQLite so it survives server restarts."""
+    from datetime import datetime
+    now = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    get_state_db().execute(
+        """
+        INSERT INTO ocr_results (doc_id, result_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(doc_id) DO UPDATE SET
+            result_json = excluded.result_json,
+            updated_at  = excluded.updated_at
+        """,
+        (doc_id, json.dumps(result, ensure_ascii=False), now, now),
+    )
+
+
+def _load_ocr_result(doc_id: str) -> Optional[Dict]:
+    """Load OCR result from SQLite. Returns None if not found."""
+    row = get_state_db().query_one(
+        "SELECT result_json FROM ocr_results WHERE doc_id = ?",
+        (doc_id,),
+    )
+    if row:
+        return json.loads(row["result_json"])
+    return None
 
 
 class OCRProgressResponse(BaseModel):
@@ -107,13 +134,15 @@ async def ocr_progress(doc_id: str):
 
 
 async def _process_ocr_async(doc_id: str, file_path: str, filename: str, enable_llm: bool = False):
-    """Run OCR processing in a thread pool to avoid blocking."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(
-        None,
-        lambda: asyncio.run(
-            ocr_processor.process_document(doc_id, file_path, filename, enable_llm=enable_llm)
-        )
+    """Run OCR processing directly on the event loop.
+
+    The previous implementation used `run_in_executor + asyncio.run()` which
+    created a nested event loop — that pattern leaks connections and can
+    deadlock. Since `ocr_processor.process_document` is already async, we
+    just await it directly.
+    """
+    return await ocr_processor.process_document(
+        doc_id, file_path, filename, enable_llm=enable_llm
     )
 
 
@@ -121,26 +150,23 @@ async def _run_ocr_background(doc_id: str, file_path: str, filename: str):
     """Background task: run OCR (without LLM correction by default) and store result."""
     try:
         result = await _process_ocr_async(doc_id, file_path, filename, enable_llm=False)
-        _ocr_results[doc_id] = result
-        _ocr_status[doc_id] = "completed"
+        _save_ocr_result(doc_id, result)
         logger.info(f"[OCR] Background processing completed for {doc_id} (LLM skipped)")
     except Exception as e:
         logger.error(f"Background OCR failed for {doc_id}: {e}", exc_info=True)
-        _ocr_results[doc_id] = {"error": str(e), "doc_id": doc_id, "status": "failed"}
-        _ocr_status[doc_id] = "failed"
+        _save_ocr_result(doc_id, {"error": str(e), "doc_id": doc_id, "status": "failed"})
 
 
 async def _run_llm_correction_background(doc_id: str, raw_text: str, filename: str):
     """Background task: run LLM correction on existing OCR result."""
     try:
-        result = _ocr_results.get(doc_id, {})
+        result = _load_ocr_result(doc_id) or {}
         corrected = await ocr_processor.intelligent_correct(raw_text, filename=filename)
 
         result["ocr_text"] = corrected
         result["corrected_char_count"] = len(corrected)
         result["llm_corrected"] = True
-        _ocr_results[doc_id] = result
-        _ocr_status[doc_id] = "completed"
+        _save_ocr_result(doc_id, result)
 
         progress_tracker.update(
             doc_id,
@@ -151,7 +177,6 @@ async def _run_llm_correction_background(doc_id: str, raw_text: str, filename: s
         logger.info(f"[OCR] LLM correction completed for {doc_id}")
     except Exception as e:
         logger.error(f"LLM correction failed for {doc_id}: {e}", exc_info=True)
-        _ocr_status[doc_id] = "failed"
         progress_tracker.update(
             doc_id,
             status="failed",
@@ -211,7 +236,7 @@ async def ocr_process_poll(file: UploadFile = File(...)):
 @router.get("/result/{doc_id}")
 async def ocr_get_result(doc_id: str):
     """Get the OCR result for a completed document."""
-    result = _ocr_results.get(doc_id)
+    result = _load_ocr_result(doc_id)
     progress = progress_tracker.get(doc_id)
 
     if result:
@@ -244,7 +269,7 @@ async def ocr_correct_text(doc_id: str):
     The corrected result is stored in ocr_text.
     Poll /progress/{doc_id} for status, then /result/{doc_id} for the updated result.
     """
-    result = _ocr_results.get(doc_id)
+    result = _load_ocr_result(doc_id)
     if not result:
         raise HTTPException(status_code=404, detail="Document not found. Run OCR first.")
 
@@ -529,6 +554,28 @@ async def ocr_process_stream(
                         "status": "completed",
                     }
                 }, ensure_ascii=False) + "\n")
+
+                # Persist result to SQLite so /result/{doc_id} works after SSE ends
+                _save_ocr_result(doc_id, {
+                    "doc_id": doc_id,
+                    "filename": filename,
+                    "total_pages": total_pages,
+                    "raw_text": combined_text,
+                    "ocr_text": corrected_text,
+                    "raw_char_count": sum(r["char_count"] for r in ocr_results),
+                    "corrected_char_count": len(corrected_text),
+                    "llm_corrected": True,
+                    "page_results": [
+                        {
+                            "page": r["page"],
+                            "char_count": r["char_count"],
+                            "has_content": len(r["text"].strip()) > 0,
+                        }
+                        for r in ocr_results
+                    ],
+                    "status": "completed",
+                })
+
                 logger.info(f"[OCR] result queued for {doc_id}")
 
             except Exception as e:
@@ -610,8 +657,8 @@ async def ocr_delete_document(doc_id: str):
             os.remove(file_path)
 
     progress_tracker.delete(doc_id)
-    _ocr_results.pop(doc_id, None)
-    _ocr_status.pop(doc_id, None)
+    # Delete OCR result from SQLite
+    get_state_db().execute("DELETE FROM ocr_results WHERE doc_id = ?", (doc_id,))
 
     return JSONResponse(content={
         "doc_id": doc_id,
