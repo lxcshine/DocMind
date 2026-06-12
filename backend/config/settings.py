@@ -133,6 +133,10 @@ class Settings:
     APP_VERSION: str = os.getenv("APP_VERSION", "2.0.0")
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
+    # ===== MCP (Model Context Protocol) Configuration =====
+    MCP_ENABLED: bool = os.getenv("MCP_ENABLED", "true").lower() == "true"
+    MCP_BING_API_KEY: str = os.getenv("MCP_BING_API_KEY", "")  # Optional: Bing Search API key for web search tool
+
     # ===== Logging Configuration =====
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     LOG_FORMAT: str = os.getenv("LOG_FORMAT", "plain")  # "plain" or "json"
@@ -182,6 +186,7 @@ class Settings:
         "/", "/api/health", "/api/info",
         "/api/docs", "/api/docs/oauth2-redirect",
         "/api/redoc", "/openapi.json",
+        "/mcp",  # MCP Streamable HTTP endpoint
     ]
 
     # ===== OCR Configuration =====
