@@ -78,7 +78,18 @@ async def lifespan(app: FastAPI):
         logger.warning(f"RAG initialization failed (will retry on first use): {e}")
         app.state.rag = None
 
-    yield
+    # Initialize MCP session manager
+    if getattr(settings, "MCP_ENABLED", True):
+        try:
+            from core.mcp_server import mcp_lifespan
+            async with mcp_lifespan(app):
+                logger.info("MCP Server session manager started")
+                yield
+        except Exception as e:
+            logger.warning(f"MCP initialization failed: {e}")
+            yield
+    else:
+        yield
 
     # Shutdown
     logger.info("Shutting down DocMind API...")
@@ -159,6 +170,15 @@ app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(search.router, prefix="/api/search", tags=["search"])
 app.include_router(memory.router, prefix="/api/memory", tags=["memory"])
 app.include_router(ocr.router, prefix="/api/ocr", tags=["ocr"])
+
+# ===== MCP Server Mount =====
+if getattr(settings, "MCP_ENABLED", True):
+    try:
+        from core.mcp_server import get_mcp_asgi_app
+        app.mount("/mcp", get_mcp_asgi_app())
+        logger.info("MCP Server mounted at /mcp (Streamable HTTP transport)")
+    except Exception as e:
+        logger.warning(f"MCP Server mount failed: {e}")
 
 
 # ===== Health & Info Endpoints =====
