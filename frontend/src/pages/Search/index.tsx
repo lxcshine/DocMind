@@ -1,27 +1,22 @@
 import React, { useState } from 'react';
-import { Input, Button, Card, Tag, Space, Empty, Spin, message, Collapse, Tooltip, Result, Badge, Divider } from 'antd';
+import { Input, Button, Card, Tag, Space, Empty, Spin, message, Collapse, Tooltip, Result, Badge } from 'antd';
 import {
   SearchOutlined,
-  GlobalOutlined,
   LinkOutlined,
   LoadingOutlined,
   FileTextOutlined,
   ExportOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  ClockCircleOutlined,
   ThunderboltOutlined,
   ClearOutlined,
   CaretRightOutlined,
   EyeOutlined,
-  WarningOutlined,
 } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
-
-const { Panel } = Collapse;
 
 const API_BASE_URL = 'http://localhost:8300/api';
 
@@ -44,9 +39,9 @@ interface ScrapedPageAnalysis {
 }
 
 const QUICK_STARTERS = [
-  { label: 'AI Research Papers 2025', query: '2025骞存渶鏂癆I鐮旂┒璁烘枃' },
-  { label: 'Global Market Trends', query: '2025鍏ㄧ悆鑲″競璧板娍鍒嗘瀽' },
-  { label: 'Latest Tech News', query: '鏈€鏂扮鎶€鏂伴椈' },
+  { label: 'AI Research Papers 2025', query: '2025年最新AI研究论文' },
+  { label: 'Global Market Trends', query: '2025全球股市走势分析' },
+  { label: 'Latest Tech News', query: '最新科技新闻' },
   { label: 'Python Web Scraping', query: 'Python web scraping best practices 2025' },
 ];
 
@@ -217,55 +212,34 @@ const Search: React.FC = () => {
   const errorCount = scrapeErrors.size;
 
   return (
-    <div className="search-page" style={{ padding: '24px 24px 48px', maxWidth: 1100, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: 40 }}>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 10,
-          marginBottom: 8,
-        }}>
-          <ThunderboltOutlined style={{ fontSize: 32, color: '#1677ff' }} />
-          <h1 style={{ fontSize: 30, fontWeight: 700, margin: 0, color: '#1a1a2e' }}>
-            Web Scraper
-          </h1>
+    <div className="page-shell">
+      <div className="page-header">
+        <div className="page-header-text">
+          <span className="page-eyebrow">Discovery</span>
+          <h1 className="page-title">Web Scraper</h1>
+          <p className="page-description">
+            Search the web, scrape pages, and get AI-powered analysis with one click.
+          </p>
         </div>
-        <p style={{ color: '#8c8c8c', fontSize: 15, margin: '8px 0 0' }}>
-          Search the web, scrape pages, and get AI-powered analysis
-        </p>
       </div>
 
       {/* Search Card */}
-      <Card
-        style={{
-          marginBottom: 24,
-          borderRadius: 16,
-          boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-          border: '1px solid #e8e8e8',
-        }}
-      >
+      <Card style={{ marginBottom: 'var(--space-6)' }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <Input
             size="large"
-            prefix={<SearchOutlined style={{ color: '#1677ff', fontSize: 18 }} />}
+            prefix={<SearchOutlined style={{ color: 'var(--color-primary)', fontSize: 18 }} />}
             placeholder="Enter URL or search query to scrape..."
             value={query}
             onChange={e => setQuery(e.target.value)}
             onPressEnter={() => handleSearch()}
             disabled={isSearching}
-            style={{
-              flex: 1,
-              borderRadius: 10,
-              height: 48,
-              fontSize: 15,
-              border: '1px solid #d9d9d9',
-            }}
+            style={{ flex: 1, height: 48, fontSize: 15 }}
             suffix={
               query && (
                 <ClearOutlined
                   onClick={() => setQuery('')}
-                  style={{ color: '#bfbfbf', cursor: 'pointer' }}
+                  style={{ color: 'var(--color-text-tertiary)', cursor: 'pointer' }}
                 />
               )
             }
@@ -277,14 +251,7 @@ const Search: React.FC = () => {
             onClick={() => handleSearch()}
             loading={isSearching}
             disabled={!query.trim()}
-            style={{
-              borderRadius: 10,
-              height: 48,
-              minWidth: 160,
-              fontSize: 15,
-              fontWeight: 600,
-              background: !query.trim() ? undefined : 'linear-gradient(135deg, #1677ff 0%, #0958d9 100%)',
-            }}
+            style={{ height: 48, minWidth: 160, fontSize: 15, fontWeight: 600 }}
           >
             Start Scraping
           </Button>
