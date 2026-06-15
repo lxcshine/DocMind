@@ -106,9 +106,6 @@ class DocumentUploadHandler:
         if not progress:
             return {"error": "Document not found", "doc_id": doc_id}
 
-        if progress.status == "processing":
-            return {"error": "Document is already being processed", "doc_id": doc_id}
-
         if not filename:
             filename = progress.filename
 
