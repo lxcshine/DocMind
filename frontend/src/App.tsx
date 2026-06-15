@@ -5,6 +5,7 @@ import Chat from './pages/Chat'
 import Search from './pages/Search'
 import Memory from './pages/Memory'
 import OCR from './pages/OCR'
+import KnowledgeGraph from './pages/KnowledgeGraph'
 import { ErrorBoundary } from './components'
 import './styles/pages.css'
 
@@ -19,6 +20,7 @@ function App() {
           <Route path="search" element={<Search />} />
           <Route path="memory" element={<Memory />} />
           <Route path="ocr" element={<OCR />} />
+          <Route path="knowledge-graph" element={<KnowledgeGraph />} />
         </Route>
       </Routes>
     </ErrorBoundary>
