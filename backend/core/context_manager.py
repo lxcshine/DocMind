@@ -185,14 +185,118 @@ class HierarchicalSummaryStore:
       Level 2: Session summary (distilled from all chunk summaries)
 
     Thread-safe via internal lock.
+    Supports persistence to SQLite to survive restarts.
     """
 
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: str, persist: bool = True):
         self.session_id = session_id
         self._lock = threading.Lock()
         self._chunk_summaries: OrderedDict[str, ChunkSummary] = OrderedDict()
         self._session_summary: Optional[SessionSummary] = None
         self._total_turns_processed: int = 0
+        self._persist = persist
+
+        # Load from SQLite if persistence is enabled
+        if persist:
+            self._load_from_db()
+
+    def _load_from_db(self) -> None:
+        """Load chunk summaries and session summary from SQLite."""
+        try:
+            from infrastructure.state_db import get_state_db
+            db = get_state_db()
+
+            # Load chunk summaries
+            rows = db.query_all(
+                "SELECT chunk_id, turn_start, turn_end, summary_text, token_count, created_at "
+                "FROM chunk_summaries WHERE session_id = ? ORDER BY turn_start",
+                (self.session_id,)
+            )
+            for row in rows:
+                chunk = ChunkSummary(
+                    chunk_id=row["chunk_id"],
+                    turn_range=(row["turn_start"], row["turn_end"]),
+                    summary_text=row["summary_text"],
+                    token_count=row["token_count"],
+                    created_at=row["created_at"],
+                )
+                self._chunk_summaries[chunk.chunk_id] = chunk
+
+            # Load session summary
+            row = db.query_one(
+                "SELECT summary_text, token_count, chunk_count, created_at, updated_at "
+                "FROM session_summaries WHERE session_id = ?",
+                (self.session_id,)
+            )
+            if row:
+                self._session_summary = SessionSummary(
+                    summary_text=row["summary_text"],
+                    token_count=row["token_count"],
+                    chunk_count=row["chunk_count"],
+                    created_at=row["created_at"],
+                    updated_at=row["updated_at"],
+                )
+
+            # Update total turns processed
+            if self._chunk_summaries:
+                max_turn = max(c.turn_range[1] for c in self._chunk_summaries.values())
+                self._total_turns_processed = max_turn
+
+            if self._chunk_summaries:
+                logger.info(
+                    f"[HierarchicalSummary] Loaded {len(self._chunk_summaries)} chunks "
+                    f"for session {self.session_id} from SQLite"
+                )
+
+        except Exception as e:
+            logger.warning(f"[HierarchicalSummary] Failed to load from SQLite: {e}")
+
+    def _save_chunk_to_db(self, chunk: ChunkSummary) -> None:
+        """Save a single chunk summary to SQLite."""
+        if not self._persist:
+            return
+        try:
+            from infrastructure.state_db import get_state_db
+            db = get_state_db()
+            db.execute(
+                "INSERT OR REPLACE INTO chunk_summaries "
+                "(session_id, chunk_id, turn_start, turn_end, summary_text, token_count, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    self.session_id,
+                    chunk.chunk_id,
+                    chunk.turn_range[0],
+                    chunk.turn_range[1],
+                    chunk.summary_text,
+                    chunk.token_count,
+                    chunk.created_at,
+                )
+            )
+        except Exception as e:
+            logger.warning(f"[HierarchicalSummary] Failed to save chunk to SQLite: {e}")
+
+    def _save_session_summary_to_db(self) -> None:
+        """Save session summary to SQLite."""
+        if not self._persist or not self._session_summary:
+            return
+        try:
+            from infrastructure.state_db import get_state_db
+            db = get_state_db()
+            db.execute(
+                "INSERT OR REPLACE INTO session_summaries "
+                "(session_id, summary_text, token_count, chunk_count, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    self.session_id,
+                    self._session_summary.summary_text,
+                    self._session_summary.token_count,
+                    self._session_summary.chunk_count,
+                    self._session_summary.created_at,
+                    self._session_summary.updated_at,
+                )
+            )
+        except Exception as e:
+            logger.warning(f"[HierarchicalSummary] Failed to save session summary to SQLite: {e}")
 
     @property
     def chunk_count(self) -> int:
@@ -269,6 +373,9 @@ class HierarchicalSummaryStore:
                     token_count=token_count,
                 )
 
+                # Persist to SQLite immediately
+                self._save_chunk_to_db(self._chunk_summaries[chunk_id])
+
                 logger.info(
                     f"[HierarchicalSummary] Created {chunk_id}: "
                     f"turns {start_turn}-{end_turn}, "
@@ -278,6 +385,8 @@ class HierarchicalSummaryStore:
             # Regenerate session summary if we have 2+ chunk summaries
             if len(self._chunk_summaries) >= 2:
                 self._regenerate_session_summary()
+                # Persist session summary to SQLite
+                self._save_session_summary_to_db()
 
             self._total_turns_processed = total_turns
 
