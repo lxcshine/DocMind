@@ -677,6 +677,14 @@ MIT License
 
 ---
 
-## 9. 致谢
+## 致谢
 
-DocMind 的设计理念深受 [PageIndex](https://github.com/nick-cao/PageIndex) 项目 Vectorless RAG 思想的启发，记忆模块借鉴了 [RAGFlow](https://github.com/infiniflow/ragflow) 的多类型记忆设计。感谢这些项目的开创性工作。
+DocMind 的诞生离不开以下开源项目的卓越贡献，在此向所有作者和社区成员致以诚挚的感谢：
+
+### [RAG-Anything](https://github.com/RAGAnything/RAG-Anything)
+
+RAG-Anything 是一个多模态 RAG 框架，为 DocMind 提供了核心的文档解析与多模态处理能力。它封装了 MinerU 文档解析引擎，支持 PDF、DOCX、PPTX 等多种格式的精确提取，并内置了图片、表格、公式的多模态分析管线。DocMind 的三档处理模式（Fast/Standard/Full）和多模态内容处理器（`modal_processors.py`）均深度参考了 RAG-Anything 的架构设计。
+
+### [LightRAG](https://github.com/HKUDS/LightRAG)
+
+LightRAG 是香港大学数据科学实验室开发的轻量级 RAG 框架，为 DocMind 提供了知识图谱构建与多模式查询能力。其创新的实体-关系图谱提取算法和 local/global/hybrid/naive 四模式查询策略，是 DocMind RAG 引擎的基石。DocMind 的自适应检索（RF-Mem）和 Agentic 检索（PageIndex 风格）均是在 LightRAG 的存储层之上构建的扩展能力。
