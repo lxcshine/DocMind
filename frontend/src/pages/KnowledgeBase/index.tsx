@@ -26,7 +26,7 @@ import styles from './KnowledgeBase.module.css';
 
 const { Dragger } = Upload;
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = '/api';
 
 interface Document {
   key: string;
@@ -95,11 +95,11 @@ const KnowledgeBase: React.FC = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/documents/upload`, { method: 'POST', body: formData });
       const result = await response.json();
-      if (response.ok) {
-        message.success(`Saved ${result.filename}. Click "Add to KB" to process.`);
+      if (response.ok && result.success) {
+        message.success(`Saved ${result.data.filename}. Click "Add to KB" to process.`);
         fetchDocuments();
       } else {
-        message.error(`Upload failed: ${result.detail || 'Unknown error'}`);
+        message.error(`Upload failed: ${result.message || 'Unknown error'}`);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Network error';
