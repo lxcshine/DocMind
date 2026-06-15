@@ -25,7 +25,6 @@
 
 <p align="center">
   <a href="#快速开始">快速开始</a> •
-  <a href="#核心架构">核心架构</a> •
   <a href="#rag-引擎">RAG 引擎</a> •
   <a href="#mcp-集成">MCP 集成</a> •
   <a href="#项目结构">项目结构</a> •
@@ -135,119 +134,130 @@ LightRAG 提供五种查询策略，前端可通过下拉菜单切换：
 
 ---
 
-## 3. 项目结构
+## MCP 集成
 
+DocMind 内置 MCP（Model Context Protocol）Server，将核心能力暴露为标准化工具，任何 MCP 兼容客户端（Claude Desktop、Cursor、VS Code Copilot 等）可直接调用。
+
+### 暴露的能力
+
+**7 个 Tools（AI 可调用的函数）：**
+
+| Tool | 作用 | 底层实现 |
+|------|------|---------|
+| `search_knowledge_base` | RAG 知识库搜索（5 种模式） | `raganything.query()` |
+| `get_document` | 获取文档元数据 | `tree_index_store.get_document_info()` |
+| `get_document_structure` | 获取文档层级结构 | `tree_index_store.get_document_structure()` |
+| `get_page_content` | 获取指定页面内容 | `tree_index_store.get_page_content()` |
+| `search_web` | 深度网页搜索 + LLM 综合 | `WebScraper` + LLM |
+| `memory_add` | 添加记忆条目 | `MemoryService.add_entry()` |
+| `memory_search` | 语义搜索记忆 | `MemoryService._index.search()` |
+
+**2 个 Resources（AI 可读取的数据）：**
+
+| Resource URI | 作用 |
+|-------------|------|
+| `document://list` | 知识库文档列表 |
+| `document://{doc_id}/structure` | 文档层级结构（模板化） |
+
+**1 个 Prompt（预定义模板）：**
+
+| Prompt | 作用 |
+|--------|------|
+| `knowledge_qa` | 知识库问答 Prompt 模板 |
+
+### 传输协议
+
+采用 **Streamable HTTP**（MCP 规范 2025-11-25）：
+- 单一 `/mcp` 端点，POST 发送 JSON-RPC，GET/SSE 支持流式响应
+- `stateless_http=True` 无状态模式，支持负载均衡器水平扩展
+- 兼容反向代理（nginx、云 LB）
+
+### 客户端配置
+
+**Claude Desktop** (`settings.json`)：
+```json
+{
+  "mcpServers": {
+    "docmind": {
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}
 ```
-DocMind/
-├── backend/                          # Python 后端
-│   ├── main.py                       # 应用入口，Agent 初始化
-│   ├── requirements.txt
-│   ├── .env.example
-│   ├── config/
-│   │   └── settings.py               # 全局配置（模型、路径、阈值）
-│   ├── api/                          # API 接口层
-│   │   ├── chat.py                   # 核心对话接口（SSE 流式 + Vision 调度）
-│   │   ├── documents.py              # 文档上传 / 处理 / 删除
-│   │   ├── search.py                 # 智能检索接口
-│   │   ├── memory.py                 # 记忆管理接口
-│   │   └── ocr.py                    # OCR 识别接口
-│   ├── core/                         # Agent 核心
-│   │   ├── parser.py                 # 文档解析器（PDF 书签提取 + 页面范围计算）
-│   │   ├── doc_handler.py            # 文档处理流水线（上传 → 解析 → 建树 → 存储）
-│   │   ├── agentic_retrieve.py       # Agent 检索器（LLM 工具调用 + 关键词回退）
-│   │   ├── tree_index.py             # 层级树索引（JSON 文件系统）
-│   │   ├── meta_store.py             # 文档元数据
-│   │   ├── progress.py               # 处理进度追踪
-│   │   ├── chat_history.py           # MySQL 对话历史
-│   │   ├── memory.py                 # 长期记忆（4 类 + 关键词索引 + FIFO）
-│   │   ├── ocr_handler.py            # OCR 处理器
-│   │   └── web_scraper.py            # 网页抓取
-│   ├── tree_index/                   # 树索引持久化目录
-│   ├── uploads/                      # 上传文件存储
-│   └── tests/
-├── frontend/                         # React 前端
-│   ├── src/
-│   │   ├── App.tsx
-│   │   ├── layouts/
-│   │   │   └── MainLayout.tsx
-│   │   └── pages/
-│   │       ├── KnowledgeBase/        # 知识库管理
-│   │       ├── Chat/                 # Agent 对话
-│   │       ├── Search/               # 智能检索
-│   │       ├── Memory/               # 记忆管理
-│   │       └── OCR/                  # OCR 识别
-│   └── package.json
-└── README.md
+
+**Cursor / VS Code**：
+```json
+{
+  "mcp.servers": {
+    "docmind": {
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}
 ```
 
 ---
 
-## 4. 安装与使用
+## 快速开始
 
-### 4.1 环境要求
+### 环境要求
 
-| 组件 | 版本 | 说明 |
-|------|------|------|
-| Python | 3.10+ | 后端运行环境 |
-| Node.js | 18+ | 前端运行环境 |
-| MySQL | 5.7+ | 可选，用于对话历史持久化 |
-| Tesseract OCR | 5.x | 可选，用于 OCR 功能 |
+| 组件 | 最低版本 | 说明 |
+|------|---------|------|
+| Python | 3.11+ | 后端运行时 |
+| Node.js | 18+ | 前端构建 |
+| MySQL | 8.0+ | 会话历史、文档元数据 |
+| Tesseract | 5.0+ | OCR 功能（可选） |
 
-### 4.2 后端
+### 1. 克隆项目
+
+```bash
+git clone https://github.com/lxcshine/DocMind.git
+cd DocMind
+```
+
+### 2. 后端配置
 
 ```bash
 cd backend
-python -m venv venv
 
-# Windows
-venv\Scripts\activate
+# 创建虚拟环境
+conda create -n docmind python=3.11
+conda activate docmind
 
-# Linux / macOS
-source venv/bin/activate
-
+# 安装依赖
 pip install -r requirements.txt
+
+# 配置环境变量
 cp .env.example .env
-# 编辑 .env，填入 API Key 后保存
+# 编辑 .env，填写以下必填项：
+#   GEMINI_API_KEY=your_api_key
+#   GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+#   GEMINI_MODEL=gemini-2.5-flash
+#   MYSQL_HOST=localhost
+#   MYSQL_PASSWORD=your_password
+```
+
+### 3. 启动后端
+
+```bash
+cd backend
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 4.3 前端
+### 4. 启动前端
 
 ```bash
 cd frontend
 npm install
-npm run dev          # 开发模式
-npm run build        # 生产构建
+npm run dev
 ```
 
-### 4.4 环境变量
+### 5. 访问
 
-```ini
-# 文本模型（必需）
-GEMINI_API_KEY="your-api-key"
-GEMINI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
-GEMINI_MODEL="gemini-2.5-flash"
-
-# 视觉模型（可选，用于公式和表格渲染）
-VISION_API_KEY="your-vision-key"
-VISION_BASE_URL="https://api.openai.com/v1/"
-VISION_MODEL="gpt-4o"
-
-# MySQL（可选，对话历史）
-MYSQL_HOST="localhost"
-MYSQL_PORT="3306"
-MYSQL_USER="root"
-MYSQL_PASSWORD="your-password"
-MYSQL_DATABASE="docmind"
-
-# OCR（可选）
-TESSERACT_PATH="D:/software/Tesseract-OCR/tesseract.exe"
-OCR_LANGUAGES="chi_sim+eng"
-```
-
-### 4.5 快速上手
-
-启动后端和前端后，浏览器打开 `http://localhost:5173`。典型使用流程：在 KnowledgeBase 页面上传 PDF，点击 Add to KB 等待处理完成（状态变为 Completed），然后切换到 Chat 页面开始对话。
+- 前端：http://localhost:5173
+- 后端 API 文档：http://localhost:8000/api/docs
+- MCP 端点：http://localhost:8000/mcp
 
 ---
 
