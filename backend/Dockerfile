@@ -4,7 +4,8 @@ FROM python:3.11.10-slim-bookworm AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
 
 # 仅 builder 需要的编译工具
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -25,17 +26,23 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # 干净的 slim 镜像 + runtime 系统库，体积小
 FROM python:3.11.10-slim-bookworm AS runtime
 
+LABEL maintainer="DocMind Team" \
+      version="2.0.0" \
+      description="DocMind Backend - Enterprise Document Intelligence Platform"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app
 
-# 运行时必需的系统库 —— 之前漏装会导致 PDF/OCR/图像处理全部失败
+# 运行时必需的系统库
 #   - poppler-utils:        pdf2image 依赖
 #   - tesseract + chi_sim:  pytesseract OCR（settings.OCR_LANGUAGES=chi_sim+eng）
 #   - libgl1/libglib/libsm/libxrender/libxext:  Pillow / pymupdf / 视觉库
 #   - fonts-noto-cjk:       中文渲染（matplotlib、KaTeX 文本）
+#   - wget:                 健康检查（替代 curl）
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
+    wget \
     poppler-utils \
     tesseract-ocr \
     tesseract-ocr-chi-sim \
@@ -46,9 +53,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     libxext6 \
     fonts-noto-cjk \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -f
 
-# 非 root 用户
+# 非 root 用户（安全最佳实践）
 RUN groupadd -r appuser \
     && useradd -r -g appuser -d /app -s /sbin/nologin appuser
 
@@ -64,16 +72,21 @@ COPY --chown=appuser:appuser . .
 RUN mkdir -p /app/logs /app/uploads /app/rag_storage /app/output \
     && chown -R appuser:appuser /app/logs /app/uploads /app/rag_storage /app/output
 
+# 切换到非 root 用户
 USER appuser
 
 EXPOSE 8000
 
-# start_period=300s 给 RAG 初始化（首次加载模型权重）留时间
+# 健康检查：使用 Python urllib（与 docker-compose.yml 一致）
 HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
-    CMD curl -f http://localhost:8000/api/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')" || exit 1
 
-# 不指定 --workers：默认就是 1，配合 FastAPI async 处理 SSE 长连接
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 启动命令
+# --host 0.0.0.0: 监听所有网络接口
+# --port 8000: 端口
+# --workers 1: 单 worker（FastAPI async 处理 SSE 长连接，多 worker 会导致 SSE 问题）
+# --log-level info: 日志级别
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info"]
 
 # ============================================================================
 # ⚠️  MinerU（magic-pdf）说明
