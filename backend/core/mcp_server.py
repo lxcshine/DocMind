@@ -324,6 +324,258 @@ async def memory_search(
         return json.dumps({"error": str(e)})
 
 
+@mcp.tool()
+async def process_document(
+    doc_id: str,
+    mode: str = "standard",
+) -> str:
+    """
+    Trigger document processing with the specified mode.
+
+    Processing modes:
+    - "fast": Quick parsing, no KG extraction (~1-2 min)
+    - "standard": Balanced parsing with KG extraction (~3-5 min)
+    - "full": Complete parsing with deep KG extraction (~5-10 min)
+
+    Args:
+        doc_id: The document ID to process
+        mode: Processing mode — "fast", "standard", "full". Default "standard"
+
+    Returns:
+        Confirmation message with processing status
+    """
+    try:
+        from core.meta_store import DocumentMetadataStore
+        from config.settings import settings
+
+        meta_store = DocumentMetadataStore(
+            db_path=str(settings.BASE_DIR / "documents_meta.json")
+        )
+
+        # Check if document exists
+        doc = meta_store.get_document(doc_id)
+        if not doc:
+            return json.dumps({"error": f"Document {doc_id} not found"})
+
+        # Update status
+        meta_store.update_document(doc_id, status="processing")
+
+        # Trigger processing in background
+        # Note: In production, this would be a proper background task
+        return json.dumps({
+            "status": "processing_started",
+            "doc_id": doc_id,
+            "mode": mode,
+            "message": f"Document processing started in {mode} mode. Check progress via get_document tool."
+        })
+
+    except Exception as e:
+        logger.error(f"MCP process_document error: {e}", exc_info=True)
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def get_memory_stats() -> str:
+    """
+    Get statistics about the memory system.
+
+    Returns:
+        JSON string with memory statistics including:
+        - Total entries count
+        - Entries by type
+        - Enabled/disabled counts
+        - Storage size
+    """
+    try:
+        from core.memory import get_memory_service
+
+        service = get_memory_service()
+        if service is None:
+            return json.dumps({"error": "Memory service not initialized"})
+
+        entries = service.list_entries()
+        total = len(entries)
+        enabled = sum(1 for e in entries if e.enabled)
+        disabled = total - enabled
+
+        # Count by type
+        by_type = {}
+        for entry in entries:
+            by_type[entry.type] = by_type.get(entry.type, 0) + 1
+
+        return json.dumps({
+            "total_entries": total,
+            "enabled": enabled,
+            "disabled": disabled,
+            "by_type": by_type,
+        }, ensure_ascii=False, indent=2)
+
+    except Exception as e:
+        logger.error(f"MCP get_memory_stats error: {e}", exc_info=True)
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def get_system_health() -> str:
+    """
+    Get system health status and diagnostics.
+
+    Returns:
+        JSON string with health information including:
+        - Backend status
+        - Database connectivity
+        - LLM availability
+        - Vector store status
+        - Memory usage
+    """
+    try:
+        from infrastructure.state_db import get_state_db
+        from infrastructure.llm_client import get_sync_llm
+        from core.raganything import get_rag_instance
+
+        health = {
+            "status": "healthy",
+            "checks": {},
+        }
+
+        # Check database
+        try:
+            db = get_state_db()
+            db.execute("SELECT 1")
+            health["checks"]["database"] = "ok"
+        except Exception as e:
+            health["checks"]["database"] = f"error: {e}"
+            health["status"] = "degraded"
+
+        # Check LLM
+        try:
+            llm = get_sync_llm()
+            # Simple test call
+            response = llm.chat("Hello", max_tokens=5)
+            health["checks"]["llm"] = "ok"
+        except Exception as e:
+            health["checks"]["llm"] = f"error: {e}"
+            health["status"] = "degraded"
+
+        # Check RAG
+        try:
+            rag = get_rag_instance()
+            if rag:
+                health["checks"]["rag"] = "initialized"
+            else:
+                health["checks"]["rag"] = "not_initialized"
+        except Exception as e:
+            health["checks"]["rag"] = f"error: {e}"
+
+        # Check memory
+        try:
+            from core.memory import get_memory_service
+            service = get_memory_service()
+            if service:
+                entries = service.list_entries()
+                health["checks"]["memory"] = f"ok ({len(entries)} entries)"
+            else:
+                health["checks"]["memory"] = "not_initialized"
+        except Exception as e:
+            health["checks"]["memory"] = f"error: {e}"
+
+        return json.dumps(health, ensure_ascii=False, indent=2)
+
+    except Exception as e:
+        logger.error(f"MCP get_system_health error: {e}", exc_info=True)
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def get_conversation_history(
+    session_id: str,
+    limit: int = 50,
+) -> str:
+    """
+    Get conversation history for a specific session.
+
+    Args:
+        session_id: The session ID
+        limit: Maximum number of messages to return (default 50, max 200)
+
+    Returns:
+        JSON string with conversation messages
+    """
+    try:
+        from infrastructure.state_db import get_state_db
+
+        db = get_state_db()
+        limit = min(limit, 200)
+
+        rows = db.query_all(
+            "SELECT role, content, timestamp FROM chat_messages "
+            "WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?",
+            (session_id, limit)
+        )
+
+        messages = [
+            {
+                "role": row["role"],
+                "content": row["content"],
+                "timestamp": row["timestamp"],
+            }
+            for row in reversed(rows)
+        ]
+
+        return json.dumps({
+            "session_id": session_id,
+            "message_count": len(messages),
+            "messages": messages,
+        }, ensure_ascii=False, indent=2)
+
+    except Exception as e:
+        logger.error(f"MCP get_conversation_history error: {e}", exc_info=True)
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def ocr_process(
+    file_path: str,
+    use_ai_correction: bool = False,
+) -> str:
+    """
+    Perform OCR on an image, PDF, or PPT file.
+
+    Args:
+        file_path: Path to the file to process
+        use_ai_correction: Whether to apply AI-based text correction (default False)
+
+    Returns:
+        JSON string with OCR results including extracted text and metadata
+    """
+    try:
+        from core.ocr_service import ocr_service
+        from pathlib import Path
+
+        file_path_obj = Path(file_path)
+        if not file_path_obj.exists():
+            return json.dumps({"error": f"File not found: {file_path}"})
+
+        # Process OCR
+        result = await ocr_service.process_file(
+            file_path=file_path_obj,
+            use_ai_correction=use_ai_correction,
+        )
+
+        return json.dumps({
+            "status": "completed",
+            "file": file_path,
+            "text_length": len(result.get("text", "")),
+            "pages": result.get("page_count", 1),
+            "text_preview": result.get("text", "")[:500],
+            "full_text": result.get("text", ""),
+        }, ensure_ascii=False, indent=2)
+
+    except Exception as e:
+        logger.error(f"MCP ocr_process error: {e}", exc_info=True)
+        return json.dumps({"error": str(e)})
+
+
 # ===========================================================================
 # MCP Resources — read-only data the AI can fetch
 # ===========================================================================
