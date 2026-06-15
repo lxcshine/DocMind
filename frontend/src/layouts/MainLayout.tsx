@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Tooltip, Spin } from 'antd';
+import React, { useState, useMemo } from 'react';
+import { Layout, Menu, Dropdown, Tooltip, Spin } from 'antd';
 import {
   BookOutlined,
   MessageOutlined,
@@ -12,6 +12,9 @@ import {
   SettingOutlined,
   LogoutOutlined,
   PlusOutlined,
+  BellOutlined,
+  GithubOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import type { MenuProps } from 'antd';
@@ -19,112 +22,117 @@ import './MainLayout.css';
 
 const { Sider, Header, Content } = Layout;
 
+interface NavItem {
+  key: string;
+  label: string;
+  description?: string;
+  icon: React.ReactNode;
+}
+
+const PRIMARY_NAV: NavItem[] = [
+  { key: '/chat',       label: 'Chat',           description: 'Talk to your knowledge base', icon: <MessageOutlined /> },
+  { key: '/knowledge',  label: 'Knowledge Base', description: 'Documents & ingestion',      icon: <BookOutlined /> },
+  { key: '/search',     label: 'Search',         description: 'Full-text + semantic',       icon: <SearchOutlined /> },
+];
+
+const SECONDARY_NAV: NavItem[] = [
+  { key: '/memory', label: 'Memory', description: 'Long-term context', icon: <HistoryOutlined /> },
+  { key: '/ocr',    label: 'OCR',    description: 'Extract text from scans', icon: <ScanOutlined /> },
+];
+
+const routeMeta: Record<string, { title: string; eyebrow: string; icon: React.ReactNode }> = {
+  '/chat':      { title: 'Chat',           eyebrow: 'Conversation',  icon: <MessageOutlined /> },
+  '/knowledge': { title: 'Knowledge Base', eyebrow: 'Library',       icon: <BookOutlined /> },
+  '/search':    { title: 'Search',         eyebrow: 'Discovery',     icon: <SearchOutlined /> },
+  '/memory':    { title: 'Memory',         eyebrow: 'Long-term',     icon: <HistoryOutlined /> },
+  '/ocr':       { title: 'OCR',            eyebrow: 'Extraction',    icon: <ScanOutlined /> },
+};
+
 const MainLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const menuItems: MenuProps['items'] = [
-    {
-      key: '/knowledge',
-      icon: <BookOutlined />,
-      label: 'Knowledge Base',
-    },
-    {
-      key: '/chat',
-      icon: <MessageOutlined />,
-      label: 'Chat',
-    },
-    {
-      key: '/search',
-      icon: <SearchOutlined />,
-      label: 'Search',
-    },
-    {
-      key: '/memory',
-      icon: <HistoryOutlined />,
-      label: 'Memory',
-    },
-    {
-      key: '/ocr',
-      icon: <ScanOutlined />,
-      label: 'OCR',
-    },
-  ];
-
   const userMenuItems: MenuProps['items'] = [
-    {
-      key: 'profile',
-      icon: <UserOutlined />,
-      label: 'Profile',
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Settings',
-    },
-    {
-      type: 'divider',
-    },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Logout',
-      danger: true,
-    },
+    { key: 'profile',  icon: <UserOutlined />,    label: 'Profile' },
+    { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
+    { type: 'divider' },
+    { key: 'logout',   icon: <LogoutOutlined />,  label: 'Sign out', danger: true },
   ];
-
-  const handleMenuClick = ({ key }: { key: string }) => {
-    navigate(key);
-  };
 
   const handleNewChat = () => {
-    // Use URL search params like RAGFlow for reliable navigation
     const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     navigate(`/chat?conversationId=${newSessionId}&isNew=true`);
   };
 
-  // Reset navigating state when route changes
-  React.useEffect(() => {
-    if (isNavigating) {
-      const timer = setTimeout(() => setIsNavigating(false), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [location.pathname, isNavigating]);
+  // Match the deepest path (handles `/chat?...`)
+  const activePath = useMemo(() => {
+    const path = location.pathname;
+    const known = Object.keys(routeMeta).sort((a, b) => b.length - a.length);
+    return known.find(k => path === k || path.startsWith(k + '/')) || '/chat';
+  }, [location.pathname]);
+
+  const current = routeMeta[activePath];
+
+  const handleMenuClick = ({ key }: { key: string }) => {
+    setIsNavigating(true);
+    navigate(key);
+    // small artificial delay so the transition is visible
+    setTimeout(() => setIsNavigating(false), 320);
+  };
 
   return (
-    <Layout className="main-layout">
+    <Layout className="main-layout" hasSider>
       <Sider
         trigger={null}
         collapsible
         collapsed={collapsed}
         className="layout-sider"
-        width={240}
+        width={260}
+        collapsedWidth={68}
         theme="light"
       >
         <div className="logo-container">
           <div className="logo-icon">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
             </svg>
           </div>
           {!collapsed && <span className="logo-text">DocMind</span>}
         </div>
 
-        <Menu
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
-          onClick={handleMenuClick}
-          className="sidebar-menu"
-        />
+        <div className="sidebar-menu-wrap">
+          {!collapsed && <div className="sidebar-section-label">Workspace</div>}
+          <Menu
+            mode="inline"
+            selectedKeys={[activePath]}
+            items={PRIMARY_NAV.map(i => ({ key: i.key, icon: i.icon, label: i.label }))}
+            onClick={handleMenuClick}
+            className="sidebar-menu"
+          />
+
+          {!collapsed && <div className="sidebar-section-label">Tools</div>}
+          <Menu
+            mode="inline"
+            selectedKeys={[activePath]}
+            items={SECONDARY_NAV.map(i => ({ key: i.key, icon: i.icon, label: i.label }))}
+            onClick={handleMenuClick}
+            className="sidebar-menu"
+          />
+        </div>
 
         <div className="sidebar-footer">
           <Tooltip title={collapsed ? 'New Chat' : ''} placement="right">
             <button className="new-chat-btn" onClick={handleNewChat}>
-              <PlusOutlined />
-              {!collapsed && <span>New Chat</span>}
+              {collapsed ? <PlusOutlined /> : (
+                <>
+                  <ThunderboltOutlined />
+                  <span>New Chat</span>
+                </>
+              )}
             </button>
           </Tooltip>
         </div>
@@ -136,15 +144,36 @@ const MainLayout: React.FC = () => {
             <button
               className="collapse-btn"
               onClick={() => setCollapsed(!collapsed)}
+              aria-label="Toggle sidebar"
             >
               {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             </button>
+            <div className="breadcrumb">
+              <span className="breadcrumb-icon">{current?.icon}</span>
+              <span style={{ color: 'var(--color-text-tertiary)' }}>{current?.eyebrow}</span>
+              <span style={{ color: 'var(--color-text-tertiary)' }}>/</span>
+              <span className="breadcrumb-title">{current?.title}</span>
+            </div>
           </div>
 
           <div className="header-right">
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <div className="user-avatar">
-                <Avatar size="small" icon={<UserOutlined />} />
+            <Tooltip title="Notifications">
+              <button className="header-icon-btn" aria-label="Notifications">
+                <BellOutlined />
+              </button>
+            </Tooltip>
+            <Tooltip title="Source">
+              <button
+                className="header-icon-btn"
+                aria-label="Source"
+                onClick={() => window.open('https://github.com/lxcshine/DocMind', '_blank')}
+              >
+                <GithubOutlined />
+              </button>
+            </Tooltip>
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
+              <div className="user-avatar" role="button" tabIndex={0}>
+                <div className="avatar-bubble">DM</div>
                 <span className="username">User</span>
               </div>
             </Dropdown>
@@ -153,22 +182,11 @@ const MainLayout: React.FC = () => {
 
         <Content className="layout-content">
           <Outlet />
-          
-          {/* Loading overlay during navigation */}
           {isNavigating && (
-            <div style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(255, 255, 255, 0.8)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 9999,
-            }}>
-              <Spin size="large" tip="Loading chat..." />
+            <div className="nav-overlay">
+              <Spin size="large" tip="Loading…">
+                <div style={{ minWidth: 200, minHeight: 120, padding: 24 }} />
+              </Spin>
             </div>
           )}
         </Content>
