@@ -5,20 +5,23 @@ import Chat from './pages/Chat'
 import Search from './pages/Search'
 import Memory from './pages/Memory'
 import OCR from './pages/OCR'
+import { ErrorBoundary } from './components'
 import './styles/pages.css'
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<MainLayout />}>
-        <Route index element={<Navigate to="/knowledge" replace />} />
-        <Route path="knowledge" element={<KnowledgeBase />} />
-        <Route path="chat" element={<Chat />} />
-        <Route path="search" element={<Search />} />
-        <Route path="memory" element={<Memory />} />
-        <Route path="ocr" element={<OCR />} />
-      </Route>
-    </Routes>
+    <ErrorBoundary>
+      <Routes>
+        <Route path="/" element={<MainLayout />}>
+          <Route index element={<Navigate to="/knowledge" replace />} />
+          <Route path="knowledge" element={<KnowledgeBase />} />
+          <Route path="chat" element={<Chat />} />
+          <Route path="search" element={<Search />} />
+          <Route path="memory" element={<Memory />} />
+          <Route path="ocr" element={<OCR />} />
+        </Route>
+      </Routes>
+    </ErrorBoundary>
   )
 }
 
