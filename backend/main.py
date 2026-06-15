@@ -163,13 +163,14 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 
 # ===== Router Registration =====
-from api import documents, chat, search, memory, ocr
+from api import documents, chat, search, memory, ocr, knowledge_graph
 
 app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(search.router, prefix="/api/search", tags=["search"])
 app.include_router(memory.router, prefix="/api/memory", tags=["memory"])
 app.include_router(ocr.router, prefix="/api/ocr", tags=["ocr"])
+app.include_router(knowledge_graph.router, prefix="/api", tags=["knowledge-graph"])
 
 # ===== MCP Server Mount =====
 if getattr(settings, "MCP_ENABLED", True):
