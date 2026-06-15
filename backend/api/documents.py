@@ -12,6 +12,7 @@ from typing import List, Optional
 import os
 import uuid
 import shutil
+import asyncio
 from pathlib import Path
 import logging
 
@@ -52,7 +53,6 @@ def _inject_rag():
 
 
 async def _schedule_process_document(
-    background_tasks: BackgroundTasks,
     doc_id: str,
     filename: str,
     mode: str,
@@ -124,6 +124,9 @@ async def upload_document(file: UploadFile = File(...)):
             status="uploaded",
         )
         
+        # Create progress record for tracking processing status
+        progress_tracker.create(doc_id, filename)
+        
         logger.info(f"Document uploaded: {filename} ({doc_id[:8]}...)")
         
         return success_response(
@@ -190,7 +193,7 @@ async def process_document(
     )
     background_tasks.add_task(
         _schedule_process_document,
-        background_tasks, doc_id, doc["filename"], mode,
+        doc_id, doc["filename"], mode,
     )
 
     logger.info(
