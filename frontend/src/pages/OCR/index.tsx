@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Button, Card, Progress, Space, Tag, Empty, Spin, message, Collapse, Tooltip } from 'antd';
 import {
   ScanOutlined,
@@ -19,8 +19,6 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import 'katex/dist/katex.min.css';
-
-const { Panel } = Collapse;
 
 const API_BASE_URL = '/api';
 
@@ -55,14 +53,15 @@ const FILE_TYPE_MAP: Record<string, FileTypeInfo> = {
 
 const OCR: React.FC = () => {
   const [uploadedFile, setUploadedFile] = useState<UploadFile | null>(null);
+  const [fileSize, setFileSize] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [, setUploadProgress] = useState(0);
   const [currentStage, setCurrentStage] = useState('');
   const [stageProgress, setStageProgress] = useState(0);
   const [stageLabel, setStageLabel] = useState('');
   const [totalPages, setTotalPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
-  const [rawChars, setRawChars] = useState(0);
+  const [, setRawChars] = useState(0);
   const [correctedChars, setCorrectedChars] = useState(0);
   const [result, setResult] = useState<OCRResult | null>(null);
   const [error, setError] = useState('');
@@ -71,12 +70,35 @@ const OCR: React.FC = () => {
   const rawFileRef = useRef<RcFile | null>(null);
   const currentDocIdRef = useRef<string>('');
 
+  // Fallback: sync fileSize from the raw File object whenever uploadedFile changes.
+  // This guards against cases where beforeUpload's file.size is 0 or undefined
+  // (e.g. browser quirks, Ant Design version differences).
+  useEffect(() => {
+    if (!uploadedFile) return;
+    // Try every possible source for the file size
+    const rawSize =
+      (uploadedFile as any).originFileObj?.size ??
+      rawFileRef.current?.size ??
+      (uploadedFile as any).size ??
+      0;
+    console.log('[OCR] useEffect fileSize check:', {
+      'originFileObj.size': (uploadedFile as any).originFileObj?.size,
+      'rawFileRef.size': rawFileRef.current?.size,
+      'uploadedFile.size': (uploadedFile as any).size,
+      'current fileSize state': fileSize,
+      'rawSize': rawSize,
+    });
+    if (rawSize > 0) {
+      setFileSize(rawSize);
+    }
+  }, [uploadedFile]);
+
   const getFileTypeInfo = (filename: string): FileTypeInfo => {
     const ext = filename.toLowerCase().substring(filename.lastIndexOf('.'));
     return FILE_TYPE_MAP[ext] || { ext: 'FILE', icon: <UploadOutlined />, color: '#8c8c8c' };
   };
 
-  const resetState = () => {
+  const resetState = (resetFileSize = true) => {
     setUploadProgress(0);
     setCurrentStage('');
     setStageProgress(0);
@@ -87,6 +109,7 @@ const OCR: React.FC = () => {
     setCorrectedChars(0);
     setResult(null);
     setError('');
+    if (resetFileSize) setFileSize(0);
     if (pollTimerRef.current) {
       clearInterval(pollTimerRef.current);
       pollTimerRef.current = null;
@@ -104,7 +127,7 @@ const OCR: React.FC = () => {
       pollTimerRef.current = null;
     }
 
-    resetState();
+    resetState(false);  // Don't reset fileSize — keep the uploaded file's size
     setIsProcessing(true);
     setUploadProgress(100);
     setCurrentStage('upload');
@@ -128,9 +151,14 @@ const OCR: React.FC = () => {
         throw new Error(errText || 'OCR request failed');
       }
 
-      const { doc_id } = await response.json();
+      const { doc_id, file_size } = await response.json();
 
       currentDocIdRef.current = doc_id;
+
+      // Use backend-reported file_size as authoritative source
+      if (file_size && file_size > 0) {
+        setFileSize(file_size);
+      }
 
       setCurrentStage('processing');
       setStageLabel('Processing started...');
@@ -317,18 +345,21 @@ const OCR: React.FC = () => {
     : '#fa8c16';
 
   return (
-    <div className="ocr-page">
+    <div className="page-shell">
       <div className="page-header">
-        <h1 className="page-title">
-          <ScanOutlined style={{ marginRight: 12 }} />
-          Intelligent OCR
-        </h1>
-        <p className="page-description">
-          Upload PDF, images (PNG/JPG/TIFF/BMP), or PPT files -- Tesseract OCR extraction + optional AI correction
-        </p>
+        <div className="page-header-text">
+          <span className="page-eyebrow">Extraction</span>
+          <h1 className="page-title">
+            <ScanOutlined style={{ marginRight: 12, color: 'var(--color-primary)' }} />
+            Intelligent OCR
+          </h1>
+          <p className="page-description">
+            Upload PDF, images (PNG/JPG/TIFF/BMP), or PPT files — Tesseract OCR extraction with optional AI correction.
+          </p>
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, minHeight: 500 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-6)', minHeight: 500 }}>
         {/* Left: Upload & Progress */}
         <div>
           <Card
@@ -345,6 +376,7 @@ const OCR: React.FC = () => {
                 multiple={false}
                 accept=".pdf,.png,.jpg,.jpeg,.tiff,.bmp,.ppt,.pptx"
                 beforeUpload={(file) => {
+                  console.log('[OCR] beforeUpload file:', file.name, 'size:', file.size, 'type:', typeof file.size);
                   const allowed = ['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.ppt', '.pptx'];
                   const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
                   if (!allowed.includes(ext)) {
@@ -355,7 +387,16 @@ const OCR: React.FC = () => {
                     message.error('File too large (max 100MB)');
                     return Upload.LIST_IGNORE;
                   }
-                  setUploadedFile({ ...file, uid: '-1', name: file.name, size: file.size, originFileObj: file } as UploadFile);
+                  // Don't spread the File object — size/name are prototype getters
+                  // that don't survive object spread. Set them explicitly.
+                  setUploadedFile({
+                    uid: '-1',
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    originFileObj: file,
+                  } as UploadFile);
+                  setFileSize(file.size);
                   rawFileRef.current = file as RcFile;
                   return false;
                 }}
@@ -392,7 +433,9 @@ const OCR: React.FC = () => {
                     <Space size={4}>
                       <Tag color={fileTypeInfo?.color}>{fileTypeInfo?.ext}</Tag>
                       <span style={{ color: '#8c8c8c', fontSize: 12 }}>
-                        {(uploadedFile.size! / 1024 / 1024).toFixed(1)} MB
+                        {fileSize < 1024 ? `${fileSize} B`
+                          : fileSize < 1024 * 1024 ? `${(fileSize / 1024).toFixed(1)} KB`
+                          : `${(fileSize / 1024 / 1024).toFixed(1)} MB`}
                       </span>
                     </Space>
                   </div>
@@ -588,7 +631,7 @@ const OCR: React.FC = () => {
                       onClick={handleLLMCorrect}
                       style={{ background: '#722ed1', borderColor: '#722ed1' }}
                     >
-                      AI 鏅鸿兘绾犻敊
+                      AI 智能纠错
                     </Button>
                     <span style={{ marginLeft: 8, color: '#8c8c8c', fontSize: 12 }}>
                       Fix OCR errors and reorganize text structure
