@@ -74,7 +74,7 @@ const KnowledgeBase: React.FC = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/documents/list`);
       const data = await response.json();
-      setDocuments(data.documents || []);
+      setDocuments(data.data?.documents || []);
     } catch (error) {
       console.error('Failed to fetch documents:', error);
     }
@@ -114,12 +114,12 @@ const KnowledgeBase: React.FC = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/documents/${docId}/process?mode=${mode}`, { method: 'POST' });
       const result = await response.json();
-      if (response.ok) {
+      if (response.ok && result.success) {
         const modeLabels = { fast: 'Fast', standard: 'Standard', full: 'Full' };
         message.success(`Processing started in ${modeLabels[mode]} mode!`);
         fetchDocuments();
       } else {
-        message.error(`Failed to process: ${result.detail || 'Unknown error'}`);
+        message.error(`Failed to process: ${result.message || 'Unknown error'}`);
       }
     } catch {
       message.error('Failed to start processing');
