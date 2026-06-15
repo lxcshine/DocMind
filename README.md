@@ -1,59 +1,52 @@
 # DocMind
 
-> 一个能读文档、会翻页、能记住你偏好的研究型 AI Agent
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-2.0.0-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
+</p>
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+<p align="center">
+  <img src="https://img.shields.io/badge/Backend-FastAPI%20%2B%20RAG--Anything-1677ff" alt="Backend" />
+  <img src="https://img.shields.io/badge/Frontend-React%20%2B%20Ant%20Design%20v5-1677ff" alt="Frontend" />
+  <img src="https://img.shields.io/badge/RAG-LightRAG%20%2B%20MinerU-1677ff" alt="RAG" />
+  <img src="https://img.shields.io/badge/MCP-Streamable%20HTTP-1677ff" alt="MCP" />
+</p>
+
+<h1 align="center">DocMind</h1>
+
+<p align="center">
+  <strong>企业级文档智能平台</strong>
+  <br />
+  <em>将非结构化文档转化为可查询、可对话、可记忆的知识引擎</em>
+</p>
+
+<p align="center">
+  <a href="#快速开始">快速开始</a> •
+  <a href="#核心架构">核心架构</a> •
+  <a href="#rag-引擎">RAG 引擎</a> •
+  <a href="#mcp-集成">MCP 集成</a> •
+  <a href="#项目结构">项目结构</a> •
+  <a href="#api-参考">API 参考</a> •
+  <a href="#部署指南">部署指南</a>
+</p>
 
 ---
 
-## 目录
+## 为什么选择 DocMind
 
-1. [项目简介](#1-项目简介)
-2. [核心能力](#2-核心能力)
-3. [项目结构](#3-项目结构)
-4. [安装与使用](#4-安装与使用)
-5. [Agent 如何阅读文档](#5-agent-如何阅读文档)
-6. [知识库隔离](#6-知识库隔离)
-7. [设计决策：检索策略与索引策略](#7-设计决策检索策略与索引策略)
-8. [上下文记忆](#8-上下文记忆)
-9. [致谢](#9-致谢)
+传统 RAG 方案在生产环境中面临的核心痛点：
 
----
-
-## 1. 项目简介
-
-DocMind 是一个面向学术文档场景的研究型 AI Agent。它的核心命题不是"如何把文档塞进向量数据库然后搜出来"，而是**如何让 AI 像一个有经验的研究者那样阅读、理解和思考文档**。
-
-现有的文档问答方案几乎全部建立在 RAG 范式之上：文档切片、embedding 向量化、近似最近邻搜索、top-k 拼接、喂给 LLM 生成回答。这条链路在 FAQ 客服、产品说明书等场景下工作良好，但在学术文档面前暴露了三个根本性缺陷：
-
-**第一，语义单元的完整性被破坏。** 学术论文的一节推导可能横跨三页，一张对比表格可能包含二十行数据。固定长度的 chunk 切分把推导切成了互不连贯的片段，LLM 看到的是残篇，而非完整的论证过程。
-
-**第二，embedding 模型理解不了专业内容。** 通用向量模型对数学公式、领域术语、算法伪代码的语义表征能力极其有限。`RMSNorm` 和 `LayerNorm` 在向量空间中可能近在咫尺，但它们讨论的是两种完全不同的归一化策略。向量距离在这里提供的不是相关性信号，而是噪音。
-
-**第三，检索逻辑是固化的，无法适应复杂的信息需求。** 当用户问"对比这三篇论文第二章和第四章的实验设置差异"时，传统 RAG 只能做一次 top-k 搜索，它既不理解问题中的多文档跨章节意图，也不具备规划多轮检索的能力。
-
-DocMind 的出发点是：**把 LLM 从最后一步的"润色工具"提升到全程主导的"思考中枢"。** Agent 拿到一篇论文后，先翻阅目录了解全貌，定位到感兴趣的章节，翻开具体页面阅读，最后综合所有信息形成回答。整个过程没有向量、没有 embedding、没有 chunk 切分。
-
-```
-传统 RAG（LLM 作为润色器）            DocMind（LLM 作为 Agent 大脑）
-
-文档 → 切片 → 向量化 → 入库           文档 → 建目录树 → 逐页提取
-  ↓                                    ↓
-用户提问 → 向量化 → top-k 检索        用户提问 → Agent 理解意图
-  ↓                                    ↓
-拼接 chunk → LLM → 回答               Agent 翻目录 → 定位章节 → 翻页
-                                        ↓
-                                      Agent 综合 → 回答
-
-
-
-```
-
-项目名为 DocMind。设计理念受到 [PageIndex](https://github.com/nick-cao/PageIndex) Vectorless RAG 思想的深刻影响，记忆模块的设计参考了 [RAGFlow](https://github.com/infiniflow/ragflow) 的多类型记忆架构。
+| 痛点 | 传统方案 | DocMind 解法 |
+|------|---------|-------------|
+| **50 页 PDF 处理 30 分钟** | 全量 KG 提取，每 chunk 一次 LLM 调用 | **三档处理模式**：Fast（1-2 分钟）/ Standard（3-8 分钟）/ Full（10-30 分钟），按需选择 |
+| **200 文件批量导入 OOM** | 串行处理，内存爆炸 | **BatchProcessor**：`asyncio.Semaphore(3)` 并发控制，单文档进度追踪，优雅降级 |
+| **Agent 50 轮后忘记指令** | 简单截断 + flat summary | **ContextManager v2**：分层摘要压缩 + 指令持久化 + 动态预算分配 + 去重守卫 |
+| **只有一种检索模式** | 单一向量相似度 | **LightRAG 五模式查询**：local / global / hybrid / mix / naive + RF-Mem 自适应切换 |
+| **Windows 长路径崩溃** | MinerU 直接处理原始路径 | **短路径代理**：MD5 哈希生成 ≤8 字符临时文件名，绕过 MAX_PATH 限制 |
+| **UI 一股 AI 模板味** | 默认 Ant Design 蓝白配色 | **Vercel/Linear 风格设计系统**：CSS 变量体系 + 深色空间调色板 + 毛玻璃表面 |
 
 
 ### 项目功能
