@@ -6,16 +6,16 @@ import { apiFetch } from '../../services/api';
 
 const { Search } = Input;
 
-interface KGNode {
+interface KGNode extends d3.SimulationNodeDatum {
   id: string;
   label: string;
   type: 'entity' | 'relation' | 'document' | 'chunk';
   properties?: Record<string, any>;
 }
 
-interface KGEdge {
-  source: string;
-  target: string;
+interface KGEdge extends d3.SimulationLinkDatum<KGNode> {
+  source: string | KGNode;
+  target: string | KGNode;
   relation: string;
   weight?: number;
 }
@@ -59,8 +59,7 @@ const KnowledgeGraph: React.FC = () => {
 
   const loadDocuments = async () => {
     try {
-      const response = await apiFetch('/documents');
-      const data = await response.json();
+      const data = await apiFetch<any>('/documents');
       if (data.success) {
         setDocuments(data.data.map((doc: any) => ({ id: doc.id, name: doc.name })));
       }
@@ -72,8 +71,7 @@ const KnowledgeGraph: React.FC = () => {
   const loadGraph = async (docId: string) => {
     setLoading(true);
     try {
-      const response = await apiFetch(`/knowledge-graph/document/${docId}`);
-      const data = await response.json();
+      const data = await apiFetch<any>(`/knowledge-graph/document/${docId}`);
       if (data.success) {
         setGraphData(data.data);
       } else {
@@ -90,8 +88,7 @@ const KnowledgeGraph: React.FC = () => {
   const loadFullGraph = async () => {
     setLoading(true);
     try {
-      const response = await apiFetch('/knowledge-graph/full');
-      const data = await response.json();
+      const data = await apiFetch<any>('/knowledge-graph/full');
       if (data.success) {
         setGraphData(data.data);
       } else {
@@ -119,16 +116,16 @@ const KnowledgeGraph: React.FC = () => {
     // 缩放行为
     const zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.1, 4])
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform);
+      .on('zoom', (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
+        g.attr('transform', event.transform.toString());
         setZoom(event.transform.k);
       });
 
     svg.call(zoomBehavior);
 
-    // 准备数据
-    const nodes = graphData.nodes.map(d => ({ ...d }));
-    const links = graphData.edges.map(d => ({ ...d }));
+    // 准备数据（d3 需要对象引用，不能展开）
+    const nodes = graphData.nodes;
+    const links = graphData.edges;
 
     // 力导向模拟
     const simulation = d3.forceSimulation(nodes)
@@ -153,22 +150,22 @@ const KnowledgeGraph: React.FC = () => {
       .join('text')
       .attr('font-size', '10px')
       .attr('fill', '#666')
-      .text(d => d.relation);
+      .text((d: KGEdge) => d.relation);
 
     // 绘制节点
     const node = g.append('g')
       .selectAll('g')
       .data(nodes)
       .join('g')
-      .call(d3.drag<SVGGElement, any>()
+      .call((d3.drag<SVGGElement, KGNode>()
         .on('start', dragstarted)
         .on('drag', dragged)
-        .on('end', dragended));
+        .on('end', dragended)) as any);
 
     // 节点圆形
     node.append('circle')
-      .attr('r', d => d.type === 'entity' ? 8 : 6)
-      .attr('fill', d => {
+      .attr('r', (d: KGNode) => d.type === 'entity' ? 8 : 6)
+      .attr('fill', (d: KGNode) => {
         if (highlightNodes.has(d.id)) return '#ff4d4f';
         switch (d.type) {
           case 'entity': return '#1890ff';
@@ -188,12 +185,12 @@ const KnowledgeGraph: React.FC = () => {
         .attr('dy', 4)
         .attr('font-size', '12px')
         .attr('fill', '#333')
-        .text(d => d.label);
+        .text((d: KGNode) => d.label);
     }
 
     // 节点悬停提示
     node.append('title')
-      .text(d => `${d.label}\n类型: ${d.type}`);
+      .text((d: KGNode) => `${d.label}\n类型: ${d.type}`);
 
     // 更新位置
     simulation.on('tick', () => {
@@ -210,18 +207,18 @@ const KnowledgeGraph: React.FC = () => {
       node.attr('transform', (d: any) => `translate(${d.x},${d.y})`);
     });
 
-    function dragstarted(event: any, d: any) {
+    function dragstarted(event: d3.D3DragEvent<SVGGElement, KGNode, KGNode>, d: KGNode) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       d.fx = d.x;
       d.fy = d.y;
     }
 
-    function dragged(event: any, d: any) {
+    function dragged(event: d3.D3DragEvent<SVGGElement, KGNode, KGNode>, d: KGNode) {
       d.fx = event.x;
       d.fy = event.y;
     }
 
-    function dragended(event: any, d: any) {
+    function dragended(event: d3.D3DragEvent<SVGGElement, KGNode, KGNode>, d: KGNode) {
       if (!event.active) simulation.alphaTarget(0);
       d.fx = null;
       d.fy = null;
