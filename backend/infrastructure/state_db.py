@@ -90,6 +90,34 @@ class StateDB:
             updated_at      TEXT NOT NULL
         )
         """,
+        # Chunk summaries for hierarchical context compression
+        """
+        CREATE TABLE IF NOT EXISTS chunk_summaries (
+            session_id      TEXT NOT NULL,
+            chunk_id        TEXT NOT NULL,
+            turn_start      INTEGER NOT NULL,
+            turn_end        INTEGER NOT NULL,
+            summary_text    TEXT NOT NULL,
+            token_count     INTEGER NOT NULL,
+            created_at      REAL NOT NULL,
+            PRIMARY KEY (session_id, chunk_id)
+        )
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS idx_chunk_summaries_session
+        ON chunk_summaries(session_id)
+        """,
+        # Session-level summary (distilled from all chunk summaries)
+        """
+        CREATE TABLE IF NOT EXISTS session_summaries (
+            session_id      TEXT PRIMARY KEY,
+            summary_text    TEXT NOT NULL,
+            token_count     INTEGER NOT NULL,
+            chunk_count     INTEGER NOT NULL,
+            created_at      REAL NOT NULL,
+            updated_at      REAL NOT NULL
+        )
+        """,
     ]
 
     def __init__(self, db_path: Union[Path, str]):
