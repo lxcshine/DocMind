@@ -1,28 +1,177 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ========================================
+   DocMind Design System v2
+   Inspired by Vercel · Stitch · Linear · Claude
+   Dark-space palette · Glass surfaces · Refined typography
+   ======================================== */
 
-* {
+:root {
+  /* ===== Brand: Deep Space Blue + Violet ===== */
+  --color-primary: #6366f1;          /* Indigo 500 */
+  --color-primary-hover: #818cf8;    /* Indigo 400 */
+  --color-primary-active: #4f46e5;   /* Indigo 600 */
+  --color-primary-soft: rgba(99, 102, 241, 0.12);
+  --color-primary-glow: rgba(99, 102, 241, 0.45);
+
+  --color-accent: #a855f7;           /* Violet 500 */
+  --color-accent-hover: #c084fc;     /* Violet 400 */
+  --color-accent-soft: rgba(168, 85, 247, 0.14);
+
+  --gradient-brand: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+  --gradient-brand-soft: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.12) 100%);
+  --gradient-bg: radial-gradient(ellipse 80% 60% at 20% 0%, rgba(99, 102, 241, 0.12), transparent 60%),
+                 radial-gradient(ellipse 60% 50% at 90% 10%, rgba(168, 85, 247, 0.10), transparent 60%),
+                 radial-gradient(ellipse 60% 50% at 50% 100%, rgba(236, 72, 153, 0.06), transparent 60%);
+
+  /* ===== Surfaces (light) ===== */
+  --color-bg: #fafafa;
+  --color-bg-elevated: #ffffff;
+  --color-bg-sunken: #f4f4f5;
+  --color-bg-overlay: rgba(255, 255, 255, 0.72);
+
+  --color-surface: #ffffff;
+  --color-surface-hover: #fafafa;
+  --color-surface-active: #f4f4f5;
+
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-strong: rgba(0, 0, 0, 0.12);
+  --color-border-subtle: rgba(0, 0, 0, 0.04);
+
+  /* ===== Text ===== */
+  --color-text: #0a0a0a;
+  --color-text-secondary: #52525b;
+  --color-text-tertiary: #a1a1aa;
+  --color-text-inverse: #fafafa;
+
+  /* ===== Semantic ===== */
+  --color-success: #10b981;
+  --color-success-soft: rgba(16, 185, 129, 0.10);
+  --color-warning: #f59e0b;
+  --color-warning-soft: rgba(245, 158, 11, 0.10);
+  --color-error: #ef4444;
+  --color-error-soft: rgba(239, 68, 68, 0.10);
+  --color-info: #3b82f6;
+  --color-info-soft: rgba(59, 130, 246, 0.10);
+
+  /* ===== Spacing (4px scale) ===== */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ===== Radius ===== */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+  --radius-full: 9999px;
+
+  /* ===== Shadows (refined, layered) ===== */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.10), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  --shadow-glow: 0 0 0 1px rgba(99, 102, 241, 0.20), 0 8px 32px rgba(99, 102, 241, 0.18);
+  --shadow-inner: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
+  /* ===== Typography ===== */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+               'Hiragino Sans GB', 'Microsoft YaHei', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Consolas, monospace;
+
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
+
+  --leading-tight: 1.25;
+  --leading-snug: 1.4;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+
+  /* ===== Motion ===== */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 320ms;
+
+  /* ===== Layout ===== */
+  --sider-width: 260px;
+  --sider-width-collapsed: 68px;
+  --header-height: 60px;
+  --content-max-width: 1280px;
+
+  /* ===== Z-index ===== */
+  --z-base: 0;
+  --z-elevated: 10;
+  --z-sticky: 100;
+  --z-overlay: 500;
+  --z-modal: 1000;
+  --z-toast: 2000;
+}
+
+/* ========================================
+   Reset
+   ======================================== */
+
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+html {
+  font-size: var(--text-base);
+  -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #fafafa;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+  background: var(--color-bg);
+  background-image: var(--gradient-bg);
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
 #root {
   min-height: 100vh;
 }
 
-/* Scrollbar styles */
+/* ========================================
+   Scrollbar (subtle, modern)
+   ======================================== */
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -30,24 +179,332 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d9d9d9;
-  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #bfbfbf;
+  background: rgba(0, 0, 0, 0.24);
+  background-clip: padding-box;
+  border: 2px solid transparent;
 }
 
-/* Ant Design overrides */
-.ant-layout-sider {
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+
+/* ========================================
+   Typography refinements
+   ======================================== */
+
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: var(--tracking-tight);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+::selection {
+  background: var(--color-primary-soft);
+  color: var(--color-text);
+}
+
+/* ========================================
+   Ant Design v5 overrides — modern look
+   ======================================== */
+
+/* Buttons */
+.ant-btn {
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  transition: all var(--duration-fast) var(--ease-out);
+  box-shadow: none !important;
+}
+
+.ant-btn-primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.ant-btn-primary:not(:disabled):hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.ant-btn-default {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.ant-btn-default:not(:disabled):hover {
+  background: var(--color-bg-sunken);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.ant-btn-text {
+  color: var(--color-text-secondary);
+}
+
+.ant-btn-text:not(:disabled):hover {
+  background: var(--color-bg-sunken);
+  color: var(--color-text);
+}
+
+/* Cards */
+.ant-card {
+  border-radius: var(--radius-xl) !important;
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.ant-card-head {
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  padding: 0 var(--space-6) !important;
+  min-height: 56px !important;
+}
+
+.ant-card-head-title {
+  font-weight: 600 !important;
+  font-size: var(--text-md) !important;
+}
+
+.ant-card-body {
+  padding: var(--space-6) !important;
+}
+
+/* Inputs */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-input-textarea,
+.ant-select-selector {
+  border-radius: var(--radius-md) !important;
+  border-color: var(--color-border-strong) !important;
+  background: var(--color-surface) !important;
+  transition: all var(--duration-fast) var(--ease-out) !important;
+}
+
+.ant-input:focus,
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused,
+.ant-input-textarea:focus,
+.ant-input-textarea-focused {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px var(--color-primary-soft) !important;
+  outline: none !important;
+}
+
+.ant-input::placeholder,
+.ant-input-textarea::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* Table */
+.ant-table {
+  background: transparent !important;
+}
+
+.ant-table-thead > tr > th {
+  background: var(--color-bg-sunken) !important;
+  font-weight: 600 !important;
+  font-size: var(--text-sm) !important;
+  color: var(--color-text-secondary) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  padding: var(--space-3) var(--space-4) !important;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  padding: var(--space-4) !important;
+  font-size: var(--text-sm);
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: var(--color-bg-sunken) !important;
+}
+
+.ant-table-tbody > tr:last-child > td {
+  border-bottom: none !important;
+}
+
+/* Menu */
+.ant-menu {
+  background: transparent !important;
+  border-inline-end: none !important;
 }
 
 .ant-menu-item {
-  border-radius: 6px;
-  margin: 4px 8px;
+  border-radius: var(--radius-md) !important;
+  margin: 2px 0 !important;
+  height: 38px !important;
+  line-height: 38px !important;
+  font-weight: 500;
+  transition: all var(--duration-fast) var(--ease-out) !important;
+}
+
+.ant-menu-item:hover {
+  background: var(--color-bg-sunken) !important;
+  color: var(--color-text) !important;
 }
 
 .ant-menu-item-selected {
-  background-color: #e6f4ff !important;
+  background: var(--color-primary-soft) !important;
+  color: var(--color-primary) !important;
+  font-weight: 600;
+}
+
+.ant-menu-item-selected::after {
+  display: none !important;
+}
+
+/* Tag */
+.ant-tag {
+  border-radius: var(--radius-full) !important;
+  padding: 2px 10px !important;
+  font-size: var(--text-xs) !important;
+  font-weight: 500;
+  border: none !important;
+}
+
+/* Modal */
+.ant-modal-content {
+  border-radius: var(--radius-xl) !important;
+  box-shadow: var(--shadow-xl) !important;
+  overflow: hidden;
+}
+
+.ant-modal-header {
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  padding: var(--space-5) var(--space-6) !important;
+}
+
+.ant-modal-title {
+  font-weight: 600 !important;
+  font-size: var(--text-md) !important;
+}
+
+.ant-modal-body {
+  padding: var(--space-6) !important;
+}
+
+/* Dropdown */
+.ant-dropdown-menu {
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border: 1px solid var(--color-border) !important;
+  padding: 4px !important;
+}
+
+.ant-dropdown-menu-item {
+  border-radius: var(--radius-sm) !important;
+  padding: 8px 12px !important;
+  font-size: var(--text-sm) !important;
+}
+
+/* Progress */
+.ant-progress-bg {
+  background: var(--gradient-brand) !important;
+}
+
+/* Drawer */
+.ant-drawer-content {
+  background: var(--color-surface) !important;
+}
+
+/* Steps */
+.ant-steps-item-process .ant-steps-item-icon {
+  background: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+}
+
+/* Empty */
+.ant-empty-description {
+  color: var(--color-text-tertiary) !important;
+}
+
+/* Message */
+.ant-message-notice-content {
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg) !important;
+  padding: 10px 16px !important;
+}
+
+/* Segmented */
+.ant-segmented {
+  background: var(--color-bg-sunken) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 2px !important;
+}
+
+.ant-segmented-item-selected {
+  background: var(--color-surface) !important;
+  box-shadow: var(--shadow-sm) !important;
+  font-weight: 500 !important;
+}
+
+/* ========================================
+   Utility components
+   ======================================== */
+
+/* Glass surface */
+.glass {
+  background: var(--color-bg-overlay);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid var(--color-border);
+}
+
+/* Brand text gradient */
+.text-gradient {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Subtle dot pattern for empty backgrounds */
+.dot-grid {
+  background-image: radial-gradient(circle, var(--color-border-strong) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Fade-in animation */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in var(--duration-slow) var(--ease-out);
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s var(--ease-in-out) infinite;
+}
+
+/* Focus ring (accessible) */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
 }
