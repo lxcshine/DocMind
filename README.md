@@ -63,46 +63,75 @@
 
 ---
 
-## 2. 核心能力
+## RAG 引擎
 
-DocMind Agent 的功能围绕"阅读—理解—记忆"这条主线展开。每个能力不是一个孤立的功能点，而是服务于 Agent 完成一次高质量研究对话所需的完整链路。
+DocMind 的 RAG 管线采用**分层**设计：处理模式（fast/standard/full）、查询模式（5 种）、自适应/检索增强（RF-Mem）、Agentic 检索（PageIndex 风格）——每个环节都可独立配置。
 
-### 文档阅读与导航
+### 三档处理模式
 
-Agent 通过三个工具完成对文档的自主导航：
+| 模式 | 管线 | 单文档耗时 | 适用场景 |
+|------|------|-----------|---------|
+| **Fast** | MinerU 解析 → LightRAG 分块 → Embedding → 向量 upsert（**无 KG**） | 1-2 分钟 | 快速检索，不需要关系推理 |
+| **Standard** | MinerU 解析 → LightRAG `ainsert`（KG + 向量，默认 chunk 大小） | 3-8 分钟 | 通用场景，实体关系图谱 + 向量检索 |
+| **Full** | MinerU 解析 → KG + 向量 + **多模态**（图片/表格/公式 VLM 分析） | 10-30 分钟 | 文档含大量图表、公式，需要 VLM 深度理解 |
 
-- **`get_document`** — 获取文档元数据（名称、页数、描述），相当于看书名和摘要。
-- **`get_document_structure`** — 获取完整的层级目录树，每个节点标注了页码范围。Agent 据此判断文档的章节组织，定位目标内容所在的精确页面。
-- **`get_page_content`** — 获取任意指定页面的完整内容。Agent 自主决定翻阅哪些页面、翻阅多少页，而不是被动接收搜索引擎返回的"最相似片段"。
+**Fast 模式底层实现**（`core/raganything.py`）：
 
-三个工具的设计保证了 Agent 拥有和人类研究者同等的"翻书"自由度。
+```python
+# 绕过 ainsert() 的 KG 阶段，直接操作 LightRAG 的存储层
+chunks       = lightrag.chunking(text_content)            # 1. 分块
+embeddings   = await lightrag.embedding_func(chunks)      # 2. Embedding（1 次 API 调用）
+for chunk, vec in zip(chunks, embeddings):                 # 3. 批量 upsert（无 KG）
+    await lightrag.chunks_vdb.upsert(chunk_id, vec, {...})
+```
 
-### 双模型调度
+### 五模式查询
 
-Agent 内部同时接入文本模型和视觉模型，根据内容的性质自动切换：
+LightRAG 提供五种查询策略，前端可通过下拉菜单切换：
 
-- **文本模型**负责常规的文本理解、文档解析和对话生成。成本低，响应快，覆盖 90% 的交互场景。
-- **视觉模型**仅在检测到页面包含公式或表格时激活。它将 PDF 页面渲染为高分辨率图片，直接"看"页面内容，完全绕过了文本提取对数学符号和表格结构的破坏。
+| 模式 | 原理 | 适用问题 |
+|------|------|---------|
+| `naive` | 纯向量相似度，返回 top-K chunks | "文档中 X 的原文是什么" |
+| `local` | 实体召回 → 局部子图遍历 | "跟这个实体相关的有哪些" |
+| `global` | 全图摘要，宏观视角 | "帮我总结一下 Y 领域的整体情况" |
+| `hybrid` | local + global 加权融合 | 需要兼顾细节和全局 |
+| `mix`（默认） | local/global/naive 动态选择 | 通用 Q&A |
 
-切换逻辑由正则表达式自动驱动，无需用户干预。Agent 在生成回答时会自动判断："这一页全是文字，走文本模型就够了"还是"这一页有求和符号和分式，必须让 VLM 看看"。
+### 自适应检索（RF-Mem 启发）
 
-### 长期记忆
+实现于 `core/adaptive_retrieval.py`。核心思想：不是所有查询都需要图检索——**熟悉的查询用向量就够了，陌生的查询才需要图探索**。
 
-Agent 不会在每次对话后重置。它从对话中提取四类记忆并持久化：
+**双路径策略：**
 
-- **Raw Memory** — 原始对话记录，忠实保留用户与 Agent 的每一轮交互。
-- **Semantic Memory** — 用户的知识偏好和研究兴趣，如"关注归一化方法的理论推导"。
-- **Episodic Memory** — 对话中的关键事件和决策过程，如"上次对比了 RMSNorm 和 LayerNorm"。
-- **Procedural Memory** — 用户的交互偏好，如回答格式、详细程度、引用风格。
+1. **Probe（探测）**：低成本 top-K=5 向量召回
+2. **Familiarity 评估**：基于探测结果的 `mean_score`（平均相似度）和 `entropy`（确定性）
+3. **自适应切换**：
+   - `familiarity ≥ 0.65` 且 `entropy ≤ 1.5` → **Familiarity 路径**：直接用向量结果，不做图遍历
+   - 否则 → **Recollection 路径**：启动图探索，多轮链式回忆（聚类 + alpha 混合 + 迭代扩展）
 
-记忆以关键词索引的方式组织，检索时返回与当前对话最相关的 top-5 记忆条目，注入 System Prompt。Agent 因此能追踪用户的兴趣演变，避免重复提问。
+### Agentic 检索（PageIndex 风格）
 
-### 其他能力
+实现于 `core/agentic_retrieve.py`。传统 RAG 只能给"页面"级答案，但用户要的是"章节"级理解。
 
-- **流式对话** — 基于 SSE（Server-Sent Events）的逐字输出，支持用户随时打断并切换话题。
-- **OCR 识别** — 对扫描版 PDF、图片、PPT 截图做文字识别，Tesseract 引擎配合 LLM 后处理纠错。
-- **网页抓取** — 将网页内容转换为 Markdown，作为知识库的补充信息源。
-- **会话持久化** — 对话历史存入 MySQL，支持创建、切换和删除会话。
+1. 文档入库时构建**层级结构树**：章节 → 子章节 → 页面
+2. 暴露三个工具给 LLM Agent：
+   - `get_document(doc_id)` → 元数据
+   - `get_document_structure(doc_id)` → 层级结构（无文本，省 token）
+   - `get_page_content(doc_id, pages)` → 指定页面原文
+3. Agent 自主决定调用顺序，直到获取足够信息后生成摘要
+
+### 上下文管理（ContextManager v2）
+
+解决多轮对话中 Agent 忘记早期指令、重复已给答案的问题。四大机制：
+
+| 机制 | 原理 | 解决的问题 |
+|------|------|-----------|
+| **分层摘要压缩** | Level 0 原始消息 → Level 1 Chunk 摘要（每 6 轮）→ Level 2 Session 摘要 | 早期信息丢失 |
+| **指令持久化** | System prompt 永不压缩 + 关键规则（MUST/NEVER/必须/绝不）在高注意力位置重复注入 | 指令稀释 |
+| **动态预算分配** | 浅层对话 60% 逐字历史 → 深层对话 40% 逐字 + 20% 摘要，信息密度恒定 | 128k 窗口反而更差 |
+| **去重守卫** | Jaccard 相似度检测重复问题 + 注入 `[DO NOT repeat]` 提示 | 重复回答 |
+
+上下文采用**三明治结构**缓解 Lost-in-the-Middle 效应：关键信息（指令/摘要/去重提示）放在首尾，细节放中间。
 
 ---
 
