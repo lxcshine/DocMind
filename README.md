@@ -18,7 +18,7 @@
 <h1 align="center">DocMind</h1>
 
 <p align="center">
-  <strong>企业级文档智能平台</strong>
+  <strong>RAG文档智能平台</strong>
   <br />
   <em>将非结构化文档转化为可查询、可对话、可记忆的知识引擎</em>
 </p>
