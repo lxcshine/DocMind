@@ -194,7 +194,7 @@ const Memory: React.FC = () => {
       dataIndex: 'type',
       key: 'type',
       width: 160,
-      render: (type: string, record: MemoryEntry) => (
+      render: (_: string, record: MemoryEntry) => (
         <Tag color={record.type_color || 'default'}>{record.type_label}</Tag>
       ),
     },
@@ -274,16 +274,17 @@ const Memory: React.FC = () => {
   ];
 
   return (
-    <div className="memory-page">
+    <div className="page-shell">
       <div className="page-header">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h2 className="page-title">Memory Management</h2>
-            <p className="page-description">
-              Agent memory with LLM-driven knowledge extraction. Semantic, Episodic, and Procedural memories
-              are automatically extracted from conversations and used to personalize future answers.
-            </p>
-          </div>
+        <div className="page-header-text">
+          <span className="page-eyebrow">Long-term</span>
+          <h1 className="page-title">Memory</h1>
+          <p className="page-description">
+            Agent memory with LLM-driven knowledge extraction. Semantic, Episodic, and Procedural memories
+            are automatically extracted from conversations and used to personalize future answers.
+          </p>
+        </div>
+        <div className="page-header-actions">
           <Popconfirm
             title="Clear all memory entries?"
             description="This action cannot be undone. All extracted memories will be lost."
