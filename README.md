@@ -29,7 +29,7 @@
   <a href="#mcp-集成">MCP 集成</a> •
   <a href="#项目结构">项目结构</a> •
   <a href="#api-参考">API 参考</a> •
-  <a href="#部署指南">部署指南</a> •
+  <a href="#Docker部署">Docker部署</a> •
   <a href="#Kubernetes部署">Kubernetes部署</a>
 </p>
 
