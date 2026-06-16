@@ -61,6 +61,16 @@ export async function apiFetch<T>(
       throw error;
     }
 
+    // Handle application-level errors (success: false with HTTP 200)
+    // Backend's error_response() returns HTTP 200 but success=false
+    if (data.success === false) {
+      const error = new Error(data.message || 'Request failed');
+      (error as any).code = data.code;
+      (error as any).correlationId = data.correlation_id;
+      (error as any).errors = data.errors;
+      throw error;
+    }
+
     // Unwrap standardized response
     if (data.success !== undefined && 'data' in data) {
       return data.data as T;
