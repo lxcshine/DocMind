@@ -62,8 +62,9 @@ const KnowledgeGraph: React.FC = () => {
       // apiFetch unwraps the response, so data is already the inner data object
       const docs = data?.documents ?? data ?? [];
       setDocuments(docs.map((doc: any) => ({ id: doc.key || doc.id || doc.doc_id, name: doc.name || doc.filename })));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load documents:', error);
+      message.error(`加载文档列表失败: ${error.message || '未知错误'}`);
     }
   };
 
@@ -73,9 +74,9 @@ const KnowledgeGraph: React.FC = () => {
       const data = await apiFetch<any>(`/knowledge-graph/document/${docId}`);
       // apiFetch unwraps the response, data is already {nodes, edges, stats}
       setGraphData(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load graph:', error);
-      message.error('加载图谱失败');
+      message.error(`加载图谱失败: ${error.message || '未知错误'}`);
     } finally {
       setLoading(false);
     }
@@ -87,9 +88,9 @@ const KnowledgeGraph: React.FC = () => {
       const data = await apiFetch<any>('/knowledge-graph/full');
       // apiFetch unwraps the response, data is already {nodes, edges, stats}
       setGraphData(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load full graph:', error);
-      message.error('加载图谱失败');
+      message.error(`加载图谱失败: ${error.message || '未知错误'}`);
     } finally {
       setLoading(false);
     }
