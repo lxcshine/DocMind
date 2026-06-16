@@ -129,82 +129,85 @@ async def _extract_graph_data(
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
     Extract graph data from LightRAG's internal storage.
-    
-    LightRAG stores entities and relationships in its working directory.
-    We read the graph structure and convert it to a D3-friendly format.
+
+    LightRAG stores entities and relationships in its working directory:
+      - kv_store_full_entities.json  → {doc_id: {"entity_names": [...]}}
+      - kv_store_full_relations.json → {doc_id: {"relation_pairs": [[src, tgt], ...]}}
+      - kv_store_entity_chunks.json  → {entity_name: {"description": ..., ...}}
     """
     import json
     from pathlib import Path
-    
+
     working_dir = Path(rag.config.working_dir)
-    
+
     nodes = []
     edges = []
-    
-    # Try to load entity data from LightRAG's storage
-    entities_file = working_dir / "kv_store_llm_response_cache.json"
+    seen_entities: set = set()
+
+    # --- Load entity metadata (descriptions) ---
+    entity_meta: Dict[str, Dict] = {}
+    entity_chunks_file = working_dir / "kv_store_entity_chunks.json"
+    if entity_chunks_file.exists():
+        try:
+            with open(entity_chunks_file, "r", encoding="utf-8") as f:
+                entity_meta = json.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load entity metadata from {entity_chunks_file}: {e}")
+
+    # --- Load entity names ---
+    entities_file = working_dir / "kv_store_full_entities.json"
     if entities_file.exists():
         try:
             with open(entities_file, "r", encoding="utf-8") as f:
-                cache = json.load(f)
-            
-            # Extract entities from cache
-            seen_entities = set()
-            for key, value in cache.items():
-                if "entity" in key.lower():
-                    try:
-                        entity_data = json.loads(value) if isinstance(value, str) else value
-                        if isinstance(entity_data, dict):
-                            entity_name = entity_data.get("entity_name", key)
-                            if entity_name not in seen_entities and len(nodes) < max_nodes:
-                                nodes.append({
-                                    "id": entity_name,
-                                    "label": entity_name,
-                                    "type": "entity",
-                                    "properties": {
-                                        "description": entity_data.get("description", ""),
-                                        "entity_type": entity_data.get("entity_type", "unknown"),
-                                    },
-                                })
-                                seen_entities.add(entity_name)
-                    except (json.JSONDecodeError, AttributeError):
+                docs = json.load(f)
+
+            for _doc_id, doc_data in docs.items():
+                entity_names = doc_data.get("entity_names", [])
+                for name in entity_names:
+                    if name in seen_entities or len(nodes) >= max_nodes:
                         continue
+                    seen_entities.add(name)
+                    meta = entity_meta.get(name, {})
+                    nodes.append({
+                        "id": name,
+                        "label": name,
+                        "type": "entity",
+                        "properties": {
+                            "description": meta.get("description", ""),
+                            "entity_type": meta.get("entity_type", "UNKNOWN"),
+                        },
+                    })
         except Exception as e:
             logger.warning(f"Failed to load entities from {entities_file}: {e}")
-    
-    # Try to load relationship data
-    relationships_file = working_dir / "kv_store_full_docs.json"
-    if relationships_file.exists():
+
+    # --- Load relation pairs ---
+    relations_file = working_dir / "kv_store_full_relations.json"
+    if relations_file.exists():
         try:
-            with open(relationships_file, "r", encoding="utf-8") as f:
+            with open(relations_file, "r", encoding="utf-8") as f:
                 docs = json.load(f)
-            
-            for key, value in docs.items():
-                if len(edges) >= max_edges:
-                    break
-                try:
-                    rel_data = json.loads(value) if isinstance(value, str) else value
-                    if isinstance(rel_data, dict) and "relationships" in rel_data:
-                        for rel in rel_data["relationships"]:
-                            source = rel.get("source", "")
-                            target = rel.get("target", "")
-                            if source and target:
-                                edges.append({
-                                    "source": source,
-                                    "target": target,
-                                    "relation": rel.get("relationship", "related_to"),
-                                    "weight": rel.get("weight", 1.0),
-                                })
-                except (json.JSONDecodeError, AttributeError):
-                    continue
+
+            for _doc_id, doc_data in docs.items():
+                relation_pairs = doc_data.get("relation_pairs", [])
+                for pair in relation_pairs:
+                    if len(edges) >= max_edges:
+                        break
+                    if isinstance(pair, (list, tuple)) and len(pair) >= 2:
+                        source, target = pair[0], pair[1]
+                        if source and target:
+                            edges.append({
+                                "source": source,
+                                "target": target,
+                                "relation": "related_to",
+                                "weight": 1.0,
+                            })
         except Exception as e:
-            logger.warning(f"Failed to load relationships: {e}")
-    
-    # If no data found in files, try LightRAG's in-memory graph
+            logger.warning(f"Failed to load relations from {relations_file}: {e}")
+
+    # --- Fallback: try LightRAG's in-memory graph ---
     if not nodes and hasattr(rag, "rag") and hasattr(rag.rag, "chunk_entity_relation_graph"):
         try:
             graph = rag.rag.chunk_entity_relation_graph
-            # Extract nodes
             for node_id in list(graph.nodes())[:max_nodes]:
                 node_data = graph.nodes[node_id]
                 nodes.append({
@@ -216,8 +219,7 @@ async def _extract_graph_data(
                         "entity_type": node_data.get("entity_type", "unknown"),
                     },
                 })
-            
-            # Extract edges
+
             for source, target, edge_data in list(graph.edges(data=True))[:max_edges]:
                 edges.append({
                     "source": source,
@@ -227,7 +229,7 @@ async def _extract_graph_data(
                 })
         except Exception as e:
             logger.warning(f"Failed to extract from in-memory graph: {e}")
-    
+
     return {"nodes": nodes, "edges": edges}
 
 
