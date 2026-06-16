@@ -133,12 +133,20 @@ async def _extract_graph_data(
     LightRAG stores entities and relationships in its working directory:
       - kv_store_full_entities.json  → {doc_id: {"entity_names": [...]}}
       - kv_store_full_relations.json → {doc_id: {"relation_pairs": [[src, tgt], ...]}}
-      - kv_store_entity_chunks.json  → {entity_name: {"description": ..., ...}}
+      - kv_store_entity_chunks.json  → {entity_name: {"chunk_ids": [...], ...}}
     """
     import json
     from pathlib import Path
+    from config.settings import settings
 
-    working_dir = Path(rag.config.working_dir)
+    # Access working_dir the same way as chat.py: via rag.lightrag.working_dir
+    # with fallback to settings.RAG_WORKING_DIR
+    working_dir = None
+    if hasattr(rag, 'lightrag') and hasattr(rag.lightrag, 'working_dir'):
+        working_dir = rag.lightrag.working_dir
+    if not working_dir:
+        working_dir = settings.RAG_WORKING_DIR
+    working_dir = Path(working_dir)
 
     nodes = []
     edges = []
@@ -205,9 +213,10 @@ async def _extract_graph_data(
             logger.warning(f"Failed to load relations from {relations_file}: {e}")
 
     # --- Fallback: try LightRAG's in-memory graph ---
-    if not nodes and hasattr(rag, "rag") and hasattr(rag.rag, "chunk_entity_relation_graph"):
+    lightrag = getattr(rag, 'lightrag', None) or getattr(rag, 'rag', None)
+    if not nodes and lightrag and hasattr(lightrag, "chunk_entity_relation_graph"):
         try:
-            graph = rag.rag.chunk_entity_relation_graph
+            graph = lightrag.chunk_entity_relation_graph
             for node_id in list(graph.nodes())[:max_nodes]:
                 node_data = graph.nodes[node_id]
                 nodes.append({
