@@ -60,6 +60,8 @@
 
 ![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/image/image_5.png)
 
+![Homepage Screenshot](https://github.com/lxcshine/DocMind/blob/master/image/image_6.png)
+
 ---
 
 ## RAG 引擎
