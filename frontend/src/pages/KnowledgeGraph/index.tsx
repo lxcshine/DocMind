@@ -31,7 +31,6 @@ const KnowledgeGraph: React.FC = () => {
   const [graphData, setGraphData] = useState<KGData | null>(null);
   const [selectedDocId, setSelectedDocId] = useState<string>('');
   const [documents, setDocuments] = useState<Array<{ id: string; name: string }>>([]);
-  const [searchText, setSearchText] = useState('');
   const [highlightNodes, setHighlightNodes] = useState<Set<string>>(new Set());
   const [showLabels, setShowLabels] = useState(true);
   const [zoom, setZoom] = useState(1);
@@ -59,10 +58,10 @@ const KnowledgeGraph: React.FC = () => {
 
   const loadDocuments = async () => {
     try {
-      const data = await apiFetch<any>('/documents');
-      if (data.success) {
-        setDocuments(data.data.map((doc: any) => ({ id: doc.id, name: doc.name })));
-      }
+      const data = await apiFetch<any>('/documents/list');
+      // apiFetch unwraps the response, so data is already the inner data object
+      const docs = data?.documents ?? data ?? [];
+      setDocuments(docs.map((doc: any) => ({ id: doc.key || doc.id || doc.doc_id, name: doc.name || doc.filename })));
     } catch (error) {
       console.error('Failed to load documents:', error);
     }
@@ -72,11 +71,8 @@ const KnowledgeGraph: React.FC = () => {
     setLoading(true);
     try {
       const data = await apiFetch<any>(`/knowledge-graph/document/${docId}`);
-      if (data.success) {
-        setGraphData(data.data);
-      } else {
-        message.error('加载图谱失败');
-      }
+      // apiFetch unwraps the response, data is already {nodes, edges, stats}
+      setGraphData(data);
     } catch (error) {
       console.error('Failed to load graph:', error);
       message.error('加载图谱失败');
@@ -89,11 +85,8 @@ const KnowledgeGraph: React.FC = () => {
     setLoading(true);
     try {
       const data = await apiFetch<any>('/knowledge-graph/full');
-      if (data.success) {
-        setGraphData(data.data);
-      } else {
-        message.error('加载图谱失败');
-      }
+      // apiFetch unwraps the response, data is already {nodes, edges, stats}
+      setGraphData(data);
     } catch (error) {
       console.error('Failed to load full graph:', error);
       message.error('加载图谱失败');
@@ -226,7 +219,6 @@ const KnowledgeGraph: React.FC = () => {
   };
 
   const handleSearch = (value: string) => {
-    setSearchText(value);
     if (!value || !graphData) {
       setHighlightNodes(new Set());
       return;
