@@ -15,6 +15,7 @@ import {
   BellOutlined,
   GithubOutlined,
   ThunderboltOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import type { MenuProps } from 'antd';
@@ -38,6 +39,7 @@ const PRIMARY_NAV: NavItem[] = [
 const SECONDARY_NAV: NavItem[] = [
   { key: '/memory', label: 'Memory', description: 'Long-term context', icon: <HistoryOutlined /> },
   { key: '/ocr',    label: 'OCR',    description: 'Extract text from scans', icon: <ScanOutlined /> },
+  { key: '/knowledge-graph', label: 'Knowledge Graph', description: 'Visualize entities & relations', icon: <ApartmentOutlined /> },
 ];
 
 const routeMeta: Record<string, { title: string; eyebrow: string; icon: React.ReactNode }> = {
@@ -46,6 +48,7 @@ const routeMeta: Record<string, { title: string; eyebrow: string; icon: React.Re
   '/search':    { title: 'Search',         eyebrow: 'Discovery',     icon: <SearchOutlined /> },
   '/memory':    { title: 'Memory',         eyebrow: 'Long-term',     icon: <HistoryOutlined /> },
   '/ocr':       { title: 'OCR',            eyebrow: 'Extraction',    icon: <ScanOutlined /> },
+  '/knowledge-graph': { title: 'Knowledge Graph', eyebrow: 'Visualization', icon: <ApartmentOutlined /> },
 };
 
 const MainLayout: React.FC = () => {
