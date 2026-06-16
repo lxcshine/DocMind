@@ -296,6 +296,272 @@ docker compose logs -f backend
 
 ---
 
+### Kubernetes部署
+
+DocMind 提供完整的 Kubernetes 部署方案，支持高可用、数据持久化、零停机滚动更新和自动扩缩容。
+
+#### 前置条件
+
+| 依赖 | 版本 | 说明 |
+|------|------|------|
+| Kubernetes | v1.24 | 集群已就绪 |
+| kubectl | v1.24 | 已配置并连接到集群 |
+| StorageClass | RWX 支持 | 后端 PVC 需要 ReadWriteMany（推荐 Longhorn / CephFS / NFS / AWS EFS） |
+| Ingress Controller | nginx-ingress | 处理外部流量和 TLS 终结 |
+| cert-manager | v1.12+ | 可选，自动 TLS 证书签发 |
+| 容器镜像仓库 | — | 集群可访问的镜像仓库 |
+
+#### 目录结构
+
+```
+k8s/
+├── deploy.sh                          # 一键部署脚本
+├── base/
+│   ├── kustomization.yaml             # Kustomize 基础入口
+│   ├── namespace.yaml                 # Namespace 定义
+│   ├── configmap.yaml                 # 非敏感配置
+│   ├── secret.yaml                    # 敏感配置 (API Keys, 密码)
+│   ├── pvc.yaml                       # 持久化卷声明
+│   ├── mysql.yaml                     # MySQL StatefulSet + Service
+│   ├── backend.yaml                   # Backend Deployment + Service + PDB
+│   ├── frontend.yaml                  # Frontend Deployment + Service + PDB
+│   ├── ingress.yaml                   # Ingress (TLS + SSE 支持)
+│   ├── hpa.yaml                       # HPA 自动扩缩容
+│   └── networkpolicy.yaml             # 网络安全策略
+└── overlays/
+    └── production/
+        └── kustomization.yaml         # 生产环境 Overlay
+```
+
+#### 快速部署
+
+**1. 配置密钥**
+
+编辑 `k8s/base/secret.yaml`，替换所有 `REPLACE_ME_` 占位符：
+
+```yaml
+stringData:
+  GEMINI_API_KEY: "your-actual-api-key"
+  VISION_API_KEY: "your-actual-api-key"
+  EMBEDDING_API_KEY: "your-actual-api-key"
+  MYSQL_ROOT_PASSWORD: "your-strong-root-password"
+  MYSQL_PASSWORD: "your-strong-user-password"
+```
+
+> **安全建议**：生产环境请使用 [Sealed Secrets](https://github.com/bitnami-labs/sealed-secrets) 或 [External Secrets Operator](https://external-secrets.io/) 管理密钥，避免明文存储。
+
+**2. 配置域名**
+
+编辑 `k8s/base/ingress.yaml`，将 `docmind.example.com` 替换为你的实际域名。
+
+**3. 构建并推送镜像**
+
+```bash
+# 构建镜像
+docker build -t your-registry/docmind-backend:v1.0.0 ./backend
+docker build -t your-registry/docmind-frontend:v1.0.0 ./frontend
+
+# 推送到镜像仓库
+docker push your-registry/docmind-backend:v1.0.0
+docker push your-registry/docmind-frontend:v1.0.0
+```
+
+**4. 更新镜像引用**
+
+编辑 `k8s/base/kustomization.yaml`：
+
+```yaml
+images:
+  - name: docmind-backend
+    newName: your-registry/docmind-backend
+    newTag: v2.0.0
+  - name: docmind-frontend
+    newName: your-registry/docmind-frontend
+    newTag: v2.0.0
+```
+
+**5. 部署**
+
+```bash
+# 开发环境
+kubectl apply -k k8s/base/
+
+# 生产环境（更多副本、更大资源、cert-manager TLS）
+kubectl apply -k k8s/overlays/production/
+
+# 或使用部署脚本
+chmod +x k8s/deploy.sh
+./k8s/deploy.sh deploy dev    # 开发环境
+./k8s/deploy.sh deploy prod   # 生产环境
+```
+
+**6. 验证**
+
+```bash
+kubectl get all -n docmind
+kubectl logs -f deployment/backend -n docmind
+```
+
+#### 高可用设计
+
+| 特性 | 实现方式 | 说明 |
+|------|----------|------|
+| **多副本** | Backend 2-16 副本，Frontend 2-4 副本 | HPA 基于 CPU/Memory 自动扩缩 |
+| **Pod 反亲和** | `podAntiAffinity: preferred` | 同一组件的 Pod 优先调度到不同节点 |
+| **拓扑分布** | `topologySpreadConstraints` | 跨可用区均匀分布，单区故障不影响服务 |
+| **PodDisruptionBudget** | `minAvailable: 1` | 自愿中断（维护/升级）期间至少保留 1 个 Pod |
+| **多级探针** | startupProbe + livenessProbe + readinessProbe | 启动期 5 分钟宽限，运行期 30 秒检测，就绪期 10 秒检测 |
+
+#### 零停机滚动更新
+
+```yaml
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1         # 先创建 1 个新 Pod
+    maxUnavailable: 0   # 始终不低于期望副本数
+```
+
+更新流程：
+
+1. 新 Pod 创建（Surge），旧 Pod 继续服务
+2. 新 Pod 通过 `readinessProbe` → 加入 Service Endpoints
+3. 旧 Pod 收到 SIGTERM → 优雅关闭（60s grace period）
+4. 旧 Pod 从 Service Endpoints 移除 → 终止
+5. 重复直到所有 Pod 更新完毕
+
+> 配合 `PDB minAvailable=1`，即使节点维护也能保证服务连续性。
+
+#### 数据持久化
+
+| PVC | 容量 | 访问模式 | 挂载路径 | 用途 |
+|-----|------|----------|----------|------|
+| `rag-storage` | 50Gi | ReadWriteMany | `/app/rag_storage` | LightRAG 知识图谱 + 向量索引 |
+| `output` | 20Gi | ReadWriteMany | `/app/output` | MinerU 解析输出 |
+| `uploads` | 10Gi | ReadWriteMany | `/app/uploads` | 用户上传文档 |
+| `logs` | 5Gi | ReadWriteMany | `/app/logs` | 应用日志 |
+| `mysql-data` | 20Gi | ReadWriteOnce | `/var/lib/mysql` | MySQL 数据（StatefulSet 管理） |
+
+> **重要**：Backend 的 PVC 使用 `ReadWriteMany`，要求 StorageClass 支持多节点同时读写。推荐方案：
+> - **Longhorn**（开源，Kubernetes 原生，RWX 支持）
+> - **NFS Server Provisioner**（简单，适合中小规模）
+> - **AWS EFS / GCP Filestore**（云托管，生产级）
+>
+> 如果只有 `ReadWriteOnce` 的 StorageClass，需将 Backend 副本数设为 1，或使用 NFS sidecar 模式。
+
+#### 自动扩缩容（HPA）
+
+| 组件 | 最小副本 | 最大副本 | 扩缩指标 | 稳定窗口 |
+|------|----------|----------|----------|----------|
+| Backend | 2 | 16 (prod: 16) | CPU 70% / Memory 80% | 扩 60s / 缩 300s |
+| Frontend | 2 | 4 | CPU 80% | 扩 60s / 缩 300s |
+
+```bash
+# 查看 HPA 状态
+kubectl get hpa -n docmind
+
+# 查看扩缩事件
+kubectl describe hpa backend-hpa -n docmind
+```
+
+#### 网络安全（NetworkPolicy）
+
+默认拒绝所有入站流量，仅开放必要路径：
+
+| 组件 | 允许来源 | 端口 |
+|------|----------|------|
+| Frontend | Ingress Controller 命名空间 | 80 |
+| Backend | Frontend Pod + Ingress Controller | 8000 |
+| MySQL | Backend Pod | 3306 |
+
+> 需要支持 NetworkPolicy 的 CNI 插件（Calico / Cilium / Weave 等）。
+
+#### 安全加固
+
+- **非 Root 运行**：所有容器以非 root 用户运行（Backend UID 1000，Frontend UID 1001，MySQL UID 999）
+- **最小权限**：`capabilities: drop: [ALL]`，`allowPrivilegeEscalation: false`
+- **网络隔离**：NetworkPolicy 默认拒绝，最小化攻击面
+- **密钥管理**：Secret 独立于 ConfigMap，生产环境推荐 Sealed Secrets
+
+#### 灾难恢复
+
+**MySQL 备份**：
+
+```bash
+# 手动备份
+kubectl exec mysql-0 -n docmind -- \
+  mysqldump -u root -p$MYSQL_ROOT_PASSWORD \
+  --single-transaction --routines --triggers docmind > backup.sql
+
+# 使用部署脚本
+./k8s/deploy.sh backup
+```
+
+**PVC 数据备份**（推荐 [Velero](https://velero.io/)）：
+
+```bash
+# 安装 Velero
+velero install --provider aws --bucket velero-backups --secret-file ./credentials
+
+# 创建定时备份
+velero schedule create docmind-daily \
+  --schedule="0 2 * * *" \
+  --include-namespaces docmind \
+  --ttl 720h
+
+# 灾难恢复
+velero restore create --from-schedule docmind-daily
+```
+
+**生产级 MySQL 高可用**（可选）：
+
+单副本 MySQL 适合中小规模。如需自动故障转移，推荐：
+- **MySQL InnoDB Cluster**（官方，3 节点，Group Replication + MySQL Router）
+- **Vitess**（PlanetScale 开源，水平分片 + 自动故障转移）
+- **AWS RDS Multi-AZ** / **阿里云 RDS 高可用版**（托管方案）
+
+#### Kustomize Overlay 说明
+
+| Overlay | 副本数 | Backend 资源 | MySQL 资源 | 用途 |
+|---------|--------|-------------|-----------|------|
+| `base` (dev) | Backend 2 / Frontend 2 / MySQL 1 | 500m CPU / 1Gi MEM | 250m / 512Mi | 开发测试 |
+| `production` | Backend 3 / Frontend 3 / MySQL 1 | 1 CPU / 2Gi MEM | 500m / 1Gi | 生产环境 |
+
+生产 Overlay 额外配置：
+- Backend HPA 最大副本提升至 16
+- MySQL `innodb_buffer_pool_size` 提升至 1G，`max_connections` 提升至 1000
+- 启用 cert-manager 自动 TLS 证书签发
+
+#### 常用运维命令
+
+```bash
+# 查看所有资源状态
+kubectl get all,pvc,hpa,ingress -n docmind
+
+# 查看滚动更新状态
+kubectl rollout status deployment/backend -n docmind
+
+# 查看特定 Pod 日志
+kubectl logs -f deployment/backend -n docmind --tail=200
+
+# 进入 Backend Pod 调试
+kubectl exec -it deployment/backend -n docmind -- /bin/bash
+
+# 手动扩缩容
+kubectl scale deployment/backend --replicas=4 -n docmind
+
+# 回滚到上一版本
+kubectl rollout undo deployment/backend -n docmind
+
+# 查看事件（排查调度问题）
+kubectl get events -n docmind --sort-by='.lastTimestamp'
+
+# 检查 PVC 绑定状态
+kubectl get pvc -n docmind -o wide
+```
+---
+
+
 ## 项目结构
 
 ```
