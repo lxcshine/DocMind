@@ -18,6 +18,7 @@ import hashlib
 import logging
 import tempfile
 import asyncio
+import subprocess
 from functools import partial
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Callable
@@ -35,6 +36,105 @@ except Exception:  # pragma: no cover - fallback when imported as a module
     progress_tracker = None
 
 logger = logging.getLogger(__name__)
+
+
+def _check_mineru_models() -> bool:
+    """
+    Check if MinerU models are downloaded.
+
+    Returns:
+        True if models exist, False otherwise
+    """
+    try:
+        # Check if magic_pdf is installed
+        import magic_pdf
+        from magic_pdf.config.constants import MODEL_DIR
+
+        # Check if model directory exists and contains files
+        model_path = Path(MODEL_DIR)
+        if not model_path.exists():
+            logger.warning(f"[MinerU] Model directory not found: {model_path}")
+            return False
+
+        # Check for key model files (layout model, formula model, etc.)
+        model_files = list(model_path.rglob("*.pth")) + list(model_path.rglob("*.onnx"))
+        if not model_files:
+            logger.warning(f"[MinerU] No model files found in {model_path}")
+            return False
+
+        logger.info(f"[MinerU] Found {len(model_files)} model files in {model_path}")
+        return True
+
+    except ImportError as e:
+        logger.warning(f"[MinerU] Failed to import magic_pdf: {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"[MinerU] Error checking models: {e}")
+        return False
+
+
+def _download_mineru_models() -> bool:
+    """
+    Download MinerU models using magic-pdf-models-download command.
+
+    Returns:
+        True if download succeeded, False otherwise
+    """
+    logger.info("[MinerU] Starting model download...")
+
+    try:
+        # Try using the magic-pdf-models-download command
+        result = subprocess.run(
+            ["magic-pdf-models-download"],
+            capture_output=True,
+            text=True,
+            timeout=600,  # 10 minutes timeout for download
+        )
+
+        if result.returncode == 0:
+            logger.info("[MinerU] Models downloaded successfully")
+            return True
+        else:
+            logger.error(f"[MinerU] Model download failed: {result.stderr}")
+            return False
+
+    except FileNotFoundError:
+        logger.error("[MinerU] magic-pdf-models-download command not found. "
+                    "Please install magic-pdf: pip install magic-pdf[full]")
+        return False
+    except subprocess.TimeoutExpired:
+        logger.error("[MinerU] Model download timed out (10 minutes)")
+        return False
+    except Exception as e:
+        logger.error(f"[MinerU] Error downloading models: {e}")
+        return False
+
+
+def _ensure_mineru_ready() -> bool:
+    """
+    Ensure MinerU is ready for use (installed and models downloaded).
+
+    Returns:
+        True if ready, False otherwise
+    """
+    # Check if magic-pdf is installed
+    try:
+        import magic_pdf
+        logger.info("[MinerU] magic-pdf is installed")
+    except ImportError:
+        logger.error("[MinerU] magic-pdf is not installed. "
+                    "Please run: pip install magic-pdf[full]")
+        return False
+
+    # Check if models are downloaded
+    if not _check_mineru_models():
+        logger.info("[MinerU] Models not found, attempting to download...")
+        if not _download_mineru_models():
+            logger.error("[MinerU] Failed to download models automatically. "
+                        "Please run manually: magic-pdf-models-download")
+            return False
+
+    return True
 
 
 async def _parse_document_with_retry(rag: RAGAnything, file_path: str, output_dir: str):
@@ -203,6 +303,10 @@ async def init_rag(
 
     # ===== 0. Validate embedding configuration =====
     _validate_embedding_config()
+
+    # ===== 0.5. Ensure MinerU is ready (check and download models if needed) =====
+    if not _ensure_mineru_ready():
+        logger.warning("[MinerU] MinerU is not ready. Document parsing may fail.")
 
     api_key = settings.GEMINI_API_KEY
     base_url = settings.GEMINI_BASE_URL
