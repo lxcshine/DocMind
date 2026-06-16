@@ -140,10 +140,13 @@ _cors_origins = settings.CORS_ORIGINS
 if "*" in _cors_origins and not settings.CORS_ALLOW_WILDCARD:
     logger.warning(
         "CORS wildcard '*' is incompatible with allow_credentials=True; "
-        "removing it. Set CORS_ALLOW_WILDCARD=true only for trusted "
-        "single-tenant deployments, or configure explicit CORS_ORIGINS."
+        "replacing with explicit dev origins. Set CORS_ALLOW_WILDCARD=true "
+        "only for trusted single-tenant deployments, or configure explicit CORS_ORIGINS."
     )
     _cors_origins = [o for o in _cors_origins if o != "*"]
+    # If wildcard was the only entry, fall back to safe defaults
+    if not _cors_origins:
+        _cors_origins = ["http://localhost:3000", "http://localhost:5173", "http://localhost:3001"]
 
 app.add_middleware(
     CORSMiddleware,
