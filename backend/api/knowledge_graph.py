@@ -203,6 +203,20 @@ async def _extract_graph_data(
                     if isinstance(pair, (list, tuple)) and len(pair) >= 2:
                         source, target = pair[0], pair[1]
                         if source and target:
+                            # Ensure both source and target nodes exist
+                            for name in (source, target):
+                                if name not in seen_entities and len(nodes) < max_nodes * 2:
+                                    seen_entities.add(name)
+                                    meta = entity_meta.get(name, {})
+                                    nodes.append({
+                                        "id": name,
+                                        "label": name,
+                                        "type": "entity",
+                                        "properties": {
+                                            "description": meta.get("description", ""),
+                                            "entity_type": meta.get("entity_type", "UNKNOWN"),
+                                        },
+                                    })
                             edges.append({
                                 "source": source,
                                 "target": target,
@@ -219,6 +233,7 @@ async def _extract_graph_data(
             graph = lightrag.chunk_entity_relation_graph
             for node_id in list(graph.nodes())[:max_nodes]:
                 node_data = graph.nodes[node_id]
+                seen_entities.add(node_id)
                 nodes.append({
                     "id": node_id,
                     "label": node_data.get("entity_name", node_id),
@@ -230,6 +245,16 @@ async def _extract_graph_data(
                 })
 
             for source, target, edge_data in list(graph.edges(data=True))[:max_edges]:
+                # Ensure both source and target nodes exist
+                for name in (source, target):
+                    if name not in seen_entities and len(nodes) < max_nodes * 2:
+                        seen_entities.add(name)
+                        nodes.append({
+                            "id": name,
+                            "label": name,
+                            "type": "entity",
+                            "properties": {"description": "", "entity_type": "unknown"},
+                        })
                 edges.append({
                     "source": source,
                     "target": target,
