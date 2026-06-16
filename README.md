@@ -29,8 +29,8 @@
   <a href="#mcp-集成">MCP 集成</a> •
   <a href="#项目结构">项目结构</a> •
   <a href="#api-参考">API 参考</a> •
-  <a href="#Docker 部署">Docker部署</a> •
-  <a href="#Kubernetes 部署">Kubernetes部署</a>
+  <a href="#Docker部署">Docker部署</a> •
+  <a href="#Kubernetes部署">Kubernetes部署</a>
 </p>
 
 ---
@@ -264,7 +264,7 @@ npm run dev
 
 ---
 
-### Docker 部署
+### Docker部署
 
 ```bash
 # 确保 backend/.env 已配置
@@ -297,7 +297,7 @@ docker compose logs -f backend
 
 ---
 
-### Kubernetes 部署
+### Kubernetes部署
 
 DocMind 提供完整的 Kubernetes 部署方案，支持高可用、数据持久化、零停机滚动更新和自动扩缩容。
 
