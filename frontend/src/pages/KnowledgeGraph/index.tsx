@@ -324,7 +324,7 @@ const KnowledgeGraph: React.FC = () => {
         </Space>
       </Card>
 
-      <Card style={{ flex: 1, overflow: 'hidden' }}>
+      <Card style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} bodyStyle={{ flex: 1, overflow: 'hidden', padding: 0 }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
             <Spin size="large" tip="加载图谱数据..." />
@@ -332,7 +332,7 @@ const KnowledgeGraph: React.FC = () => {
         ) : graphData && graphData.nodes.length > 0 ? (
           <svg
             ref={svgRef}
-            style={{ width: '100%', height: '100%', border: '1px solid #f0f0f0', borderRadius: 4 }}
+            style={{ width: '100%', height: '100%', minHeight: 500, border: '1px solid #f0f0f0', borderRadius: 4 }}
           />
         ) : (
           <Empty description="暂无图谱数据" />
