@@ -119,7 +119,15 @@ const KnowledgeGraph: React.FC = () => {
 
     // 准备数据（d3 需要对象引用，不能展开）
     const nodes = graphData.nodes;
-    const links = graphData.edges;
+    // Filter out edges whose source/target nodes don't exist
+    const nodeIdSet = new Set(nodes.map((n: KGNode) => n.id));
+    const links = graphData.edges.filter(
+      (e: KGEdge) => {
+        const src = typeof e.source === 'string' ? e.source : (e.source as KGNode).id;
+        const tgt = typeof e.target === 'string' ? e.target : (e.target as KGNode).id;
+        return nodeIdSet.has(src) && nodeIdSet.has(tgt);
+      }
+    );
 
     // 力导向模拟
     const simulation = d3.forceSimulation(nodes)
