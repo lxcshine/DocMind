@@ -1,0 +1,9 @@
+# DocMind Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: docmind
+  labels:
+    app.kubernetes.io/name: docmind
+    app.kubernetes.io/part-of: docmind
+    app.kubernetes.io/managed-by: kustomize
