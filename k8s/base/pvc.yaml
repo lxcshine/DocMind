@@ -1,0 +1,73 @@
+# PersistentVolumeClaims for Backend data
+# These PVCs are shared across all backend pods via ReadWriteMany
+# (requires a StorageClass that supports RWX, e.g. NFS, CephFS, EFS)
+# If only ReadWriteOnce is available, use a sidecar pattern or
+# a shared filesystem like Longhorn with RWX support.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rag-storage
+  namespace: docmind
+  labels:
+    app.kubernetes.io/name: docmind
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/volume: rag-storage
+spec:
+  accessModes:
+    - ReadWriteMany  # Required for multi-replica backend
+  storageClassName: standard  # Change to your RWX-capable StorageClass
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: output
+  namespace: docmind
+  labels:
+    app.kubernetes.io/name: docmind
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/volume: output
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uploads
+  namespace: docmind
+  labels:
+    app.kubernetes.io/name: docmind
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/volume: uploads
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: logs
+  namespace: docmind
+  labels:
+    app.kubernetes.io/name: docmind
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/volume: logs
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 5Gi
