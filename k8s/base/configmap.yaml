@@ -1,0 +1,79 @@
+# DocMind Application Configuration
+# Non-sensitive settings only. Secrets go in secret.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: docmind-config
+  namespace: docmind
+  labels:
+    app.kubernetes.io/name: docmind
+    app.kubernetes.io/component: config
+data:
+  # --- General ---
+  APP_VERSION: "2.0.0"
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
+  LOG_FILE_ENABLED: "false"
+
+  # --- LLM ---
+  LLM_MODE: "online"
+  GEMINI_MODEL: "gpt-4o-mini"
+  GEMINI_BASE_URL: "https://api.openai-proxy.org/v1"
+  VISION_MODEL: "gemini-3.1-flash-image"
+  VISION_BASE_URL: "https://api.openai-proxy.org/v1"
+  EMBEDDING_MODEL: "text-embedding-3-small"
+  EMBEDDING_BASE_URL: "https://api.openai-proxy.org/v1"
+  EMBEDDING_MAX_LENGTH: "1536"
+  EMBEDDING_BATCH_SIZE: "32"
+
+  # --- RAG ---
+  RAG_WORKING_DIR: "/app/rag_storage"
+  RAG_OUTPUT_DIR: "/app/output"
+  CHUNK_TOKEN_SIZE: "1200"
+  CHUNK_OVERLAP_TOKEN_SIZE: "100"
+  MAX_ENTITY_TOKENS: "4096"
+  MAX_RELATION_TOKENS: "4096"
+  MAX_TOTAL_TOKENS: "8192"
+  MAX_GRAPH_NODES: "1000"
+  COSINE_THRESHOLD: "0.4"
+  TOP_K: "60"
+  RELATED_CHUNK_NUMBER: "5"
+
+  # --- MinerU ---
+  PARSER: "mineru"
+  PARSE_METHOD: "auto"
+  MINERU_BACKEND: "pipeline"
+  MINERU_TIMEOUT: "1800"
+  MINERU_MAX_RETRIES: "2"
+
+  # --- Multimodal ---
+  ENABLE_IMAGE_PROCESSING: "true"
+  ENABLE_TABLE_PROCESSING: "true"
+  ENABLE_EQUATION_PROCESSING: "true"
+
+  # --- MySQL ---
+  MYSQL_HOST: "mysql.docmind.svc.cluster.local"
+  MYSQL_PORT: "3306"
+  MYSQL_USER: "docmind_user"
+  MYSQL_DATABASE: "docmind"
+
+  # --- CORS ---
+  CORS_ORIGINS: "https://docmind.example.com,http://localhost:3000,http://localhost:5173"
+  CORS_ALLOW_WILDCARD: "false"
+
+  # --- MCP ---
+  MCP_ENABLED: "true"
+
+  # --- Reranker ---
+  RERANKER_MODEL: "jinaai/jina-reranker-v3"
+  RERANKER_DEVICE: ""
+  RERANKER_MAX_LENGTH: "512"
+
+  # --- Upload ---
+  MAX_UPLOAD_SIZE_MB: "100"
+  MAX_BODY_SIZE_MB: "10"
+
+  # --- OCR ---
+  OCR_LANGUAGES: "chi_sim+eng"
+  OCR_DPI: "200"
