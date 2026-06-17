@@ -28,6 +28,9 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9104"
     spec:
+      # fsGroup ensures PVC mount points are accessible by mysql user (UID 999)
+      securityContext:
+        fsGroup: 999
       # Anti-affinity: prefer not to co-locate with other MySQL pods
       # (relevant when scaling to multi-replica with orchestration)
       affinity:
