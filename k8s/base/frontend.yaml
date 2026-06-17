@@ -1,0 +1,239 @@
+# Frontend Deployment - Nginx serving static SPA
+# HA: 2+ replicas with PDB, anti-affinity
+# Rolling update: maxSurge=1, maxUnavailable=0 (zero-downtime)
+# Note: nginx listens on 8080 (non-root cannot bind port 80)
+#       K8s-specific nginx config mounted via ConfigMap
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: docmind
+  labels:
+    app.kubernetes.io/name: docmind
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: docmind
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: docmind
+        app.kubernetes.io/component: frontend
+    spec:
+      # Patch nginx.conf to run as non-root before starting nginx
+      initContainers:
+        - name: patch-nginx
+          image: docmind-frontend:latest
+          # Must run as root to modify /etc/nginx/nginx.conf
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Replace 'user nginx;' with 'user appuser;' in main nginx.conf
+              sed -i 's/user nginx;/user appuser;/' /etc/nginx/nginx.conf
+              # Copy patched config to shared volume
+              cp /etc/nginx/nginx.conf /tmp/nginx-patch/nginx.conf
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: nginx-patch
+              mountPath: /tmp/nginx-patch
+      containers:
+        - name: frontend
+          image: docmind-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            runAsNonRoot: true
+            # Don't specify runAsUser - let the image's USER directive control it
+            # The Dockerfile creates appuser (UID 1001) and sets USER appuser
+            # The initContainer patches nginx.conf to match
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            # Override the main nginx.conf with patched version
+            - name: nginx-patch
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            # Override the server block config with K8s-specific config
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+      volumes:
+        - name: nginx-patch
+          emptyDir: {}
+        - name: nginx-config
+          configMap:
+            name: frontend-nginx-config
+      # Anti-affinity: spread frontend pods across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/component: frontend
+                topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/component: frontend
+      terminationGracePeriodSeconds: 15
+  minReadySeconds: 5
+  revisionHistoryLimit: 5
+---
+# Frontend nginx ConfigMap (K8s-specific: listen 8080, Service DNS)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-nginx-config
+  namespace: docmind
+  labels:
+    app.kubernetes.io/name: docmind
+    app.kubernetes.io/component: frontend
+data:
+  default.conf: |
+    server {
+        listen 8080;
+        server_name localhost;
+        root /usr/share/nginx/html;
+        index index.html;
+
+        client_max_body_size 100M;
+
+        gzip on;
+        gzip_vary on;
+        gzip_min_length 1024;
+        gzip_types text/plain text/css text/xml text/javascript
+                   application/x-javascript application/xml+rss
+                   application/json application/javascript
+                   application/octet-stream;
+
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        location /api/ {
+            proxy_pass http://backend.docmind.svc.cluster.local:8000;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_buffering off;
+            proxy_cache off;
+            proxy_connect_timeout 60s;
+            proxy_read_timeout 3600s;
+            proxy_send_timeout 3600s;
+            client_max_body_size 100M;
+        }
+
+        location /mcp {
+            proxy_pass http://backend.docmind.svc.cluster.local:8000;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_buffering off;
+            proxy_cache off;
+            proxy_connect_timeout 60s;
+            proxy_read_timeout 300s;
+            proxy_send_timeout 300s;
+        }
+
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+
+        location /health {
+            access_log off;
+            return 200 "OK\n";
+            add_header Content-Type text/plain;
+        }
+    }
+---
+# Frontend Service (ClusterIP)
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: docmind
+  labels:
+    app.kubernetes.io/name: docmind
+    app.kubernetes.io/component: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: docmind
+    app.kubernetes.io/component: frontend
+  ports:
+    - port: 80
+      name: http
+      targetPort: http
+---
+# PodDisruptionBudget - ensure at least 1 frontend pod during disruptions
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+  namespace: docmind
+  labels:
+    app.kubernetes.io/name: docmind
+    app.kubernetes.io/component: frontend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: docmind
+      app.kubernetes.io/component: frontend
