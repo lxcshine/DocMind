@@ -1,0 +1,65 @@
+# Ingress - Expose DocMind via HTTPS
+# Requires an Ingress controller (nginx-ingress, traefik, etc.)
+# Replace docmind.example.com with your actual domain
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: docmind-ingress
+  namespace: docmind
+  labels:
+    app.kubernetes.io/name: docmind
+  annotations:
+    # Nginx Ingress Controller specific annotations
+    # Adjust if using a different Ingress controller
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    # SSE support: disable buffering for streaming
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # WebSocket / SSE support for both backend and frontend
+    nginx.ingress.kubernetes.io/websocket-services: "backend,frontend"
+    # Rate limiting (protect against abuse)
+    nginx.ingress.kubernetes.io/limit-rps: "50"
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: SAMEORIGIN";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+    # cert-manager auto TLS (uncomment if using cert-manager)
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx  # Change to your IngressClass
+  tls:
+    - hosts:
+        - docmind.example.com
+      secretName: docmind-tls  # TLS certificate secret
+  rules:
+    - host: docmind.example.com
+      http:
+        paths:
+          # API & MCP routes -> backend directly (avoid double proxy)
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /mcp
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          # All other routes -> frontend (SPA with nginx proxy to backend)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
