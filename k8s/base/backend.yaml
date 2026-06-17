@@ -32,8 +32,38 @@ spec:
         prometheus.io/port: "8000"
         prometheus.io/path: "/api/metrics"
     spec:
-      # Wait for MySQL before starting backend
+      # Pod-level security context
+      # fsGroup ensures mounted PVCs are group-writable by appuser
+      securityContext:
+        fsGroup: 1000
+      # Init containers
       initContainers:
+        # Fix PVC permissions: PVC mount points are owned by root:root
+        # by default, but appuser needs write access
+        - name: fix-volume-permissions
+          image: docmind-backend:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              APP_UID=$(id -u appuser)
+              APP_GID=$(id -g appuser)
+              echo "Fixing volume permissions for appuser (UID=$APP_UID, GID=$APP_GID)..."
+              chown -R $APP_UID:$APP_GID /app/rag_storage /app/output /app/uploads /app/logs
+              echo "Volume permissions fixed."
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          volumeMounts:
+            - name: rag-storage
+              mountPath: /app/rag_storage
+            - name: output
+              mountPath: /app/output
+            - name: uploads
+              mountPath: /app/uploads
+            - name: logs
+              mountPath: /app/logs
+        # Wait for MySQL before starting backend
         - name: wait-for-mysql
           image: busybox:1.36
           command:
