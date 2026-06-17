@@ -1,0 +1,117 @@
+# Production Overlay
+# Customizes base for production deployment
+# Apply with: kubectl apply -k k8s/overlays/production
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: docmind
+
+resources:
+  - ../../base
+
+# Production-specific patches
+patches:
+  # --- Backend: increase replicas and resource limits ---
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: backend
+      spec:
+        replicas: 3
+        template:
+          spec:
+            containers:
+              - name: backend
+                resources:
+                  requests:
+                    cpu: "1"
+                    memory: 2Gi
+                  limits:
+                    cpu: "4"
+                    memory: 8Gi
+
+  # --- Frontend: increase replicas ---
+  - target:
+      kind: Deployment
+      name: frontend
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: frontend
+      spec:
+        replicas: 3
+
+  # --- MySQL: increase resources ---
+  - target:
+      kind: StatefulSet
+      name: mysql
+    patch: |
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: mysql
+      spec:
+        template:
+          spec:
+            containers:
+              - name: mysql
+                resources:
+                  requests:
+                    cpu: 500m
+                    memory: 1Gi
+                  limits:
+                    cpu: "2"
+                    memory: 4Gi
+                args:
+                  - --character-set-server=utf8mb4
+                  - --collation-server=utf8mb4_unicode_ci
+                  - --default-authentication-plugin=caching_sha2_password
+                  - --max-connections=1000
+                  - --innodb-buffer-pool-size=1G
+                  - --innodb-log-file-size=256M
+                  - --binlog-format=ROW
+                  - --gtid-mode=ON
+                  - --enforce-gtid-consistency=ON
+
+  # --- HPA: increase max replicas for production ---
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: backend-hpa
+    patch: |
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: backend-hpa
+      spec:
+        maxReplicas: 16
+
+  # --- Ingress: use production domain and TLS ---
+  - target:
+      kind: Ingress
+      name: docmind-ingress
+    patch: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: docmind-ingress
+        annotations:
+          cert-manager.io/cluster-issuer: letsencrypt-prod
+      spec:
+        tls:
+          - hosts:
+              - docmind.example.com
+            secretName: docmind-tls
+        rules:
+          - host: docmind.example.com
+
+# Production images - use specific tags, not :latest
+images:
+  - name: docmind-backend
+    newTag: v2.0.0
+  - name: docmind-frontend
+    newTag: v2.0.0
