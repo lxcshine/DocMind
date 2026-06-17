@@ -112,6 +112,6 @@ patches:
 # Production images - use specific tags, not :latest
 images:
   - name: docmind-backend
-    newTag: v2.0.0
+    newTag: v1.0.0
   - name: docmind-frontend
-    newTag: v2.0.0
+    newTag: v1.0.0
