@@ -51,9 +51,13 @@ RUN addgroup -g 1001 -S appgroup \
     && touch /var/run/nginx.pid \
     && chown -R appuser:appgroup /var/run/nginx.pid
 
+# K8s: nginx listens on 8080 (non-root cannot bind port 80)
+# Docker standalone: nginx listens on 80 (default)
+# The K8s ConfigMap overrides the server block to listen on 8080
 EXPOSE 80
 
-# 健康检查：wget 参数更明确
+# 健康检查：使用 wget 检查端口 80（Docker standalone 场景）
+# K8s 部署时使用自己的 livenessProbe/readinessProbe，不依赖此 HEALTHCHECK
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:80/ || exit 1
 
