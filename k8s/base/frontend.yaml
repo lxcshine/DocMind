@@ -160,6 +160,8 @@ data:
             try_files $uri $uri/ /index.html;
         }
 
+        # API proxy - used when accessing frontend service directly
+        # (In K8s, Ingress routes /api directly to backend, bypassing this)
         location /api/ {
             proxy_pass http://backend.docmind.svc.cluster.local:8000;
             proxy_http_version 1.1;
@@ -176,6 +178,8 @@ data:
             client_max_body_size 100M;
         }
 
+        # MCP proxy - used when accessing frontend service directly
+        # (In K8s, Ingress routes /mcp directly to backend, bypassing this)
         location /mcp {
             proxy_pass http://backend.docmind.svc.cluster.local:8000;
             proxy_http_version 1.1;
