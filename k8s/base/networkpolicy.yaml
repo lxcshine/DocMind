@@ -1,0 +1,82 @@
+# NetworkPolicy - Restrict pod-to-pod traffic
+# Only allow necessary communication paths
+# Requires a CNI that supports NetworkPolicy (Calico, Cilium, etc.)
+---
+# Default deny all ingress, allow all egress (DNS needs egress)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: docmind
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  # Egress is NOT restricted here - pods need DNS resolution
+  # and outbound internet access (LLM API calls, model downloads)
+---
+# Frontend: allow ingress from Ingress controller only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-allow-ingress
+  namespace: docmind
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+# Backend: allow ingress from frontend and Ingress controller
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-allow-ingress
+  namespace: docmind
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: frontend
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8000
+          protocol: TCP
+---
+# MySQL: allow ingress from backend only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mysql-allow-backend
+  namespace: docmind
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: mysql
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: backend
+      ports:
+        - port: 3306
+          protocol: TCP
