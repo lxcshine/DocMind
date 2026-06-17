@@ -205,7 +205,11 @@ class Settings:
         os.makedirs(self.LOG_DIR, exist_ok=True)
 
         if not self.GEMINI_API_KEY:
-            raise ValueError("GEMINI_API_KEY must be set in .env file")
+            import logging
+            logging.getLogger(__name__).warning(
+                "GEMINI_API_KEY is not set. LLM features will not work. "
+                "Set it in k8s Secret or .env file."
+            )
 
 
 settings = Settings()
